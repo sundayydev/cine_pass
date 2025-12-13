@@ -1,0 +1,135 @@
+############################
+#      GLOBAL SETTINGS     #
+############################
+
+# Ignore environment files
+.env
+.env.*
+
+
+############################
+#     ASP.NET BACKEND      #
+############################
+
+# Build outputs
+bin/
+obj/
+out/
+
+# .NET user files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Publish files
+publish/
+App_Data/
+
+# Entity Framework
+Migrations/*Designer.cs
+*_i.c
+*_p.c
+*_i.h
+*_p.h
+
+# Logs
+*.log
+logs/
+LogFiles/
+
+# Hosting
+.bundle/
+.nuget/
+packages/
+
+# Cache
+.vs/
+.vscode/
+
+
+############################
+#     REACT FRONTEND       #
+############################
+
+# Node modules
+node_modules/
+
+# Build artifacts
+dist/
+build/
+.next/
+out/
+.npm/
+.npm-cache/
+.pnpm-store/
+.bun/
+
+# React state
+*.cache
+*.parcel-cache
+.cache/
+
+# Testing outputs
+coverage/
+
+# Lockfiles (chọn 1 nếu bạn dùng cụ thể)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+# bun.lockb
+
+
+############################
+#      TOOLING / IDE       #
+############################
+
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.vcxproj.filters
+*.dbmdl
+*.jfm
+
+# Rider / JetBrains
+.idea/
+*.shelf/
+
+# VSCode settings (optional)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# C# temp
+*.cache
+*.tmp
+
+
+############################
+#         DOCKER           #
+############################
+
+# Docker compose overrides
+docker-compose.override.yml
+
+# Local volumes
+docker-data/
+docker-volume/
+docker/
+
+############################
+#        OTHER OS          #
+############################
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux temp
+*~

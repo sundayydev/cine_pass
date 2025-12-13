@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="BE_CinePass.API/BE_CinePass.API.csproj" />
+  <Project Path="BE_CinePass.Core/BE_CinePass.Core.csproj" />
+  <Project Path="BE_CinePass.Domain/BE_CinePass.Domain.csproj" />
+  <Project Path="BE_CinePass.Shared/BE_CinePass.Shared.csproj" />
+  <Project Path="BE_CinPass.Test/BE_CinPass.Test.csproj" />
+</Solution>
