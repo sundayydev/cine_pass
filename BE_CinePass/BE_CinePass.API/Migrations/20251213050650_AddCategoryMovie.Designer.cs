@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BE_CinePass.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251212053336_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251213050650_AddCategoryMovie")]
+    partial class AddCategoryMovie
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -103,6 +103,12 @@ namespace BE_CinePass.API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("category");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")

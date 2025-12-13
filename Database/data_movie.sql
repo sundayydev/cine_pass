@@ -1,11 +1,122 @@
-INSERT INTO movies (id, title, slug, duration_minutes, description, poster_url, trailer_url, release_date, status, created_at) VALUES
-('d1a2b3c4-d5e6-47f8-a9b0-c1d2e3f4a5b6', 'Mufasa: The Lion King', 'mufasa-the-lion-king', 118, 'Simba, sau khi trở thành vua của vùng đất Pride Lands...', 'https://example.com/mufasa.jpg', 'https://youtu.be/mufasa', '2024-12-20', 2, NOW()),
-('a1b2c3d4-e5f6-47a8-b9c0-d1e2f3a4b5c6', 'Sonic the Hedgehog 3', 'sonic-the-hedgehog-3', 110, 'Sonic, Knuckles và Tails tái hợp để đối đầu với Shadow...', 'https://example.com/sonic3.jpg', 'https://youtu.be/sonic3', '2024-12-20', 2, NOW()),
-('f1e2d3c4-b5a6-4798-89c0-e1d2c3b4a596', 'Kraven the Hunter', 'kraven-the-hunter', 127, 'Câu chuyện về sự ra đời của phản diện Kraven...', 'https://example.com/kraven.jpg', 'https://youtu.be/kraven', '2024-12-13', 2, NOW()),
-('11223344-5566-7788-9900-aabbccddeeff', 'Captain America: Brave New World', 'captain-america-brave-new-world', 135, 'Sam Wilson chính thức đảm nhận vai trò Captain America...', 'https://example.com/cap4.jpg', 'https://youtu.be/cap4', '2025-02-14', 1, NOW()),
-('22334455-6677-8899-0011-bbccddeeff00', 'Mickey 17', 'mickey-17', 139, 'Mickey 17 là một người dùng một lần...', 'https://example.com/mickey17.jpg', 'https://youtu.be/mickey17', '2025-01-31', 1, NOW()),
-('33445566-7788-9900-1122-ccddeeff0011', 'Snow White', 'snow-white', 120, 'Phiên bản live-action của câu chuyện cổ tích kinh điển...', 'https://example.com/snowwhite.jpg', 'https://youtu.be/snowwhite', '2025-03-21', 1, NOW()),
-('44556677-8899-0011-2233-ddeeff001122', 'A Minecraft Movie', 'a-minecraft-movie', 105, 'Bốn kẻ lạc loài bất ngờ bị hút vào Overworld...', 'https://example.com/minecraft.jpg', 'https://youtu.be/minecraft', '2025-04-04', 1, NOW()),
-('55667788-9900-1122-3344-eeff00112233', 'Thunderbolts*', 'thunderbolts', 130, 'Một nhóm các phản anh hùng được chính phủ tập hợp...', 'https://example.com/thunderbolts.jpg', 'https://youtu.be/thunderbolts', '2025-05-02', 1, NOW()),
-('66778899-0011-2233-4455-ff0011223344', 'Mission: Impossible 8', 'mission-impossible-8', 165, 'Ethan Hunt và đội IMF bước vào nhiệm vụ cuối cùng...', 'https://example.com/mi8.jpg', 'https://youtu.be/mi8', '2025-05-23', 1, NOW()),
-('77889900-1122-3344-5566-001122334455', 'Superman', 'superman-legacy', 140, 'Hành trình Clark Kent dung hòa di sản Krypton...', 'https://example.com/superman.jpg', 'https://youtu.be/superman', '2025-07-11', 1, NOW());
+INSERT INTO movies
+(id, title, slug, duration_minutes, description, poster_url, trailer_url, release_date, category, status, created_at)
+VALUES
+(gen_random_uuid(), 'Dune: Part Two', 'dune-part-two', 166,
+ 'Paul Atreides unites with the Fremen to seek revenge against the conspirators.',
+ 'https://image.tmdb.org/t/p/w500/dune2.jpg',
+ 'https://youtube.com/watch?v=Way9Dexny3w',
+ '2024-03-01', 0, 1, NOW()),
+
+(gen_random_uuid(), 'Godzilla x Kong: The New Empire', 'godzilla-x-kong', 115,
+ 'Two ancient titans face a colossal undiscovered threat.',
+ 'https://image.tmdb.org/t/p/w500/gxk.jpg',
+ 'https://youtube.com/watch?v=lV1OOlGwExM',
+ '2024-04-12', 0, 1, NOW()),
+
+(gen_random_uuid(), 'Inside Out 2', 'inside-out-2', 100,
+ 'Riley enters adolescence bringing new emotions.',
+ 'https://image.tmdb.org/t/p/w500/insideout2.jpg',
+ 'https://youtube.com/watch?v=VWavstJydZU',
+ '2024-06-14', 0, 1, NOW()),
+
+(gen_random_uuid(), 'Deadpool & Wolverine', 'deadpool-wolverine', 127,
+ 'Deadpool teams up with Wolverine for a multiverse mission.',
+ 'https://image.tmdb.org/t/p/w500/deadpool3.jpg',
+ 'https://youtube.com/watch?v=73_1biulkYk',
+ '2024-07-26', 0, 0, NOW()),
+
+(gen_random_uuid(), 'Furiosa: A Mad Max Saga', 'furiosa', 148,
+ 'Origin story of the warrior Furiosa.',
+ 'https://image.tmdb.org/t/p/w500/furiosa.jpg',
+ 'https://youtube.com/watch?v=XJMuhwVlca4',
+ '2024-05-24', 0, 1, NOW()),
+
+(gen_random_uuid(), 'Kingdom of the Planet of the Apes', 'planet-of-the-apes-2024', 145,
+ 'Apes dominate the world long after Caesar.',
+ 'https://image.tmdb.org/t/p/w500/apes2024.jpg',
+ 'https://youtube.com/watch?v=XtFI7SNtVpY',
+ '2024-05-10', 0, 1, NOW()),
+
+(gen_random_uuid(), 'Kung Fu Panda 4', 'kung-fu-panda-4', 94,
+ 'Po must train a new Dragon Warrior.',
+ 'https://image.tmdb.org/t/p/w500/kfp4.jpg',
+ 'https://youtube.com/watch?v=_inKs4eeHiI',
+ '2024-03-08', 0, 1, NOW()),
+
+(gen_random_uuid(), 'The Fall Guy', 'the-fall-guy', 126,
+ 'A stuntman is pulled into a real crime.',
+ 'https://image.tmdb.org/t/p/w500/fallguy.jpg',
+ 'https://youtube.com/watch?v=j7jPnwVGdZ8',
+ '2024-05-03', 0, 1, NOW()),
+
+(gen_random_uuid(), 'Civil War', 'civil-war-2024', 109,
+ 'A dystopian war across the United States.',
+ 'https://image.tmdb.org/t/p/w500/civilwar.jpg',
+ 'https://youtube.com/watch?v=aDyQxtg0V2w',
+ '2024-04-12', 0, 1, NOW()),
+
+(gen_random_uuid(), 'Ghostbusters: Frozen Empire', 'ghostbusters-frozen-empire', 115,
+ 'The Spenglers return to New York.',
+ 'https://image.tmdb.org/t/p/w500/ghostbusters2024.jpg',
+ 'https://youtube.com/watch?v=HRPjR6Jd8cI',
+ '2024-03-29', 0, 1, NOW()),
+
+(gen_random_uuid(), 'A Quiet Place: Day One', 'a-quiet-place-day-one', 99,
+ 'The beginning of the alien invasion.',
+ 'https://image.tmdb.org/t/p/w500/quietplace.jpg',
+ 'https://youtube.com/watch?v=YPY7J-flzE8',
+ '2024-06-28', 0, 0, NOW()),
+
+(gen_random_uuid(), 'The Garfield Movie', 'garfield-movie', 101,
+ 'Garfield embarks on an outdoor adventure.',
+ 'https://image.tmdb.org/t/p/w500/garfield.jpg',
+ 'https://youtube.com/watch?v=IeFWNtMo1Fs',
+ '2024-05-24', 0, 1, NOW()),
+
+(gen_random_uuid(), 'Joker: Folie à Deux', 'joker-folie-a-deux', 138,
+ 'Arthur Fleck finds love in Arkham.',
+ 'https://image.tmdb.org/t/p/w500/joker2.jpg',
+ 'https://youtube.com/watch?v=xy8aJw1vYHo',
+ '2024-10-04', 0, 0, NOW()),
+
+(gen_random_uuid(), 'Alien: Romulus', 'alien-romulus', 120,
+ 'A terrifying standalone Alien story.',
+ 'https://image.tmdb.org/t/p/w500/alienromulus.jpg',
+ 'https://youtube.com/watch?v=example',
+ '2024-08-16', 0, 0, NOW()),
+
+(gen_random_uuid(), 'Mufasa: The Lion King', 'mufasa-lion-king', 118,
+ 'The rise of Mufasa.',
+ 'https://image.tmdb.org/t/p/w500/mufasa.jpg',
+ 'https://youtube.com/watch?v=example',
+ '2024-12-20', 0, 0, NOW()),
+
+(gen_random_uuid(), 'The Marvels', 'the-marvels', 105,
+ 'Captain Marvel teams up with new heroes.',
+ 'https://image.tmdb.org/t/p/w500/marvels.jpg',
+ 'https://youtube.com/watch?v=example',
+ '2023-11-10', 0, 2, NOW()),
+
+(gen_random_uuid(), 'Wonka', 'wonka', 116,
+ 'The origin of Willy Wonka.',
+ 'https://image.tmdb.org/t/p/w500/wonka.jpg',
+ 'https://youtube.com/watch?v=example',
+ '2023-12-15', 0, 2, NOW()),
+
+(gen_random_uuid(), 'Oppenheimer', 'oppenheimer', 180,
+ 'The story of J. Robert Oppenheimer.',
+ 'https://image.tmdb.org/t/p/w500/oppenheimer.jpg',
+ 'https://youtube.com/watch?v=example',
+ '2023-07-21', 0, 2, NOW()),
+
+(gen_random_uuid(), 'Barbie', 'barbie', 114,
+ 'Barbie discovers the real world.',
+ 'https://image.tmdb.org/t/p/w500/barbie.jpg',
+ 'https://youtube.com/watch?v=example',
+ '2023-07-21', 0, 2, NOW()),
+
+(gen_random_uuid(), 'Spider-Man: Across the Spider-Verse', 'spiderman-spiderverse', 140,
+ 'Miles Morales ventures across the multiverse.',
+ 'https://image.tmdb.org/t/p/w500/spiderverse.jpg',
+ 'https://youtube.com/watch?v=example',
+ '2023-06-02', 0, 2, NOW());

@@ -26,8 +26,8 @@ export interface MovieCreateDto {
   description?: string;
   posterUrl?: string;
   trailerUrl?: string;
-  releaseDate?: string; // ISO date string
-  status: 'ComingSoon' | 'Showing' | 'Ended'; // MovieStatus enum
+  releaseDate?: string; // ISO date string (YYYY-MM-DDTHH:mm:ss.sssZ)
+  status: number; // MovieStatus enum: 0 = ComingSoon, 1 = Showing, 2 = Ended
 }
 
 /**
@@ -40,23 +40,24 @@ export interface MovieUpdateDto {
   description?: string;
   posterUrl?: string;
   trailerUrl?: string;
-  releaseDate?: string; // ISO date string
-  status?: 'ComingSoon' | 'Showing' | 'Ended'; // MovieStatus enum
+  releaseDate?: string; // ISO date string (YYYY-MM-DDTHH:mm:ss.sssZ)
+  status?: number; // MovieStatus enum: 0 = ComingSoon, 1 = Showing, 2 = Ended
 }
 
 // ==================== HELPER FUNCTIONS ====================
 
 /**
- * Helper: Map frontend MovieStatus sang backend MovieStatus
+ * Helper: Map frontend MovieStatus sang backend MovieStatus (số enum)
+ * Backend enum: ComingSoon = 0, Showing = 1, Ended = 2
  */
-const mapStatusToBackend = (status: string): 'ComingSoon' | 'Showing' | 'Ended' => {
-  const statusMap: Record<string, 'ComingSoon' | 'Showing' | 'Ended'> = {
-    COMING_SOON: 'ComingSoon',
-    NOW_SHOWING: 'Showing',
-    ENDED: 'Ended',
-    CANCELLED: 'Ended',
+const mapStatusToBackend = (status: string): number => {
+  const statusMap: Record<string, number> = {
+    COMING_SOON: 0,    // ComingSoon
+    NOW_SHOWING: 1,    // Showing
+    ENDED: 2,          // Ended
+    CANCELLED: 2,      // Ended (map CANCELLED về Ended)
   };
-  return statusMap[status] || 'ComingSoon';
+  return statusMap[status] ?? 0; // Default to ComingSoon (0)
 };
 
 /**
@@ -199,21 +200,35 @@ export const search = async (searchTerm: string): Promise<Movie[]> => {
  * POST /api/movies
  */
 export const create = async (payload: MoviePayload): Promise<Movie> => {
+  // Format releaseDate thành ISO string
+  let releaseDate: string | undefined;
+  if (payload.releaseDate) {
+    if (typeof payload.releaseDate === 'string') {
+      // Nếu đã là string YYYY-MM-DD, convert sang ISO string
+      if (/^\d{4}-\d{2}-\d{2}$/.test(payload.releaseDate)) {
+        releaseDate = `${payload.releaseDate}T00:00:00.000Z`;
+      } else {
+        // Nếu đã là ISO string, giữ nguyên
+        releaseDate = payload.releaseDate;
+      }
+    } else {
+      // Nếu là Date object, convert sang ISO string
+      const date = new Date(payload.releaseDate);
+      date.setUTCHours(0, 0, 0, 0);
+      releaseDate = date.toISOString();
+    }
+  }
+
   // Chuyển đổi MoviePayload sang MovieCreateDto
+  // Chỉ gửi các field có giá trị, không gửi undefined
   const dto: MovieCreateDto = {
     title: payload.title,
-    // Slug sẽ được backend tự động tạo từ title nếu không cung cấp
     durationMinutes: payload.durationMinutes,
-    description: payload.description,
-    // TODO: Handle file upload - posterUrl sẽ được set sau khi upload file
-    posterUrl: undefined,
-    trailerUrl: payload.trailerUrl,
-    releaseDate: payload.releaseDate
-      ? typeof payload.releaseDate === 'string'
-        ? payload.releaseDate
-        : new Date(payload.releaseDate).toISOString()
-      : undefined,
     status: mapStatusToBackend(payload.status),
+    // Chỉ thêm các field optional nếu có giá trị
+    ...(payload.description && { description: payload.description }),
+    ...(payload.trailerUrl && { trailerUrl: payload.trailerUrl }),
+    ...(releaseDate && { releaseDate }),
   };
 
   const response = (await axiosClient.post(
@@ -247,10 +262,21 @@ export const update = async (id: string, payload: Partial<MoviePayload>): Promis
   // TODO: Handle file upload - posterUrl sẽ được set sau khi upload file
   if (payload.trailerUrl !== undefined) dto.trailerUrl = payload.trailerUrl;
   if (payload.releaseDate !== undefined) {
-    dto.releaseDate =
-      typeof payload.releaseDate === 'string'
-        ? payload.releaseDate
-        : new Date(payload.releaseDate).toISOString();
+    // Format releaseDate giống như trong create function
+    if (typeof payload.releaseDate === 'string') {
+      // Nếu đã là string YYYY-MM-DD, convert sang ISO string
+      if (/^\d{4}-\d{2}-\d{2}$/.test(payload.releaseDate)) {
+        dto.releaseDate = `${payload.releaseDate}T00:00:00.000Z`;
+      } else {
+        // Nếu đã là ISO string, giữ nguyên
+        dto.releaseDate = payload.releaseDate;
+      }
+    } else {
+      // Nếu là Date object, convert sang ISO string
+      const date = new Date(payload.releaseDate);
+      date.setUTCHours(0, 0, 0, 0);
+      dto.releaseDate = date.toISOString();
+    }
   }
   if (payload.status !== undefined) {
     dto.status = mapStatusToBackend(payload.status);

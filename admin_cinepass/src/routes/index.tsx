@@ -12,6 +12,7 @@ import ForgotPasswordPage from '@/features/auth/ForgotPassword';
 import ResetPasswordPage from '@/features/auth/ResetPassword';
 import DashboardPage from '@/features/dashboard';
 import MovieListPage from '@/features/movies';
+import CreateMoviePage from '@/features/movies/CreateMovie';
 
 // --- Lazy Load Pages ---
 // Auth
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
       },
       { path: PATHS.DASHBOARD, element: Loadable(DashboardPage) },
       { path: PATHS.MOVIES, element: Loadable(MovieListPage) },
+      { path: PATHS.MOVIE_CREATE, element: Loadable(CreateMoviePage) },
     ]
   },
 

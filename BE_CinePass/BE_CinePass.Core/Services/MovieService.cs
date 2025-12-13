@@ -71,6 +71,7 @@ public class MovieService
             PosterUrl = dto.PosterUrl,
             TrailerUrl = dto.TrailerUrl,
             ReleaseDate = dto.ReleaseDate,
+            Category = (Domain.Common.MovieCategory)dto.Category,
             Status = (Domain.Common.MovieStatus)dto.Status,
             CreatedAt = DateTime.UtcNow
         };
@@ -111,6 +112,9 @@ public class MovieService
 
         if (dto.ReleaseDate.HasValue)
             movie.ReleaseDate = dto.ReleaseDate;
+
+        if (dto.Category.HasValue)
+            movie.Category = (Domain.Common.MovieCategory)dto.Category.Value;
 
         if (dto.Status.HasValue)
             movie.Status = (Domain.Common.MovieStatus)dto.Status.Value;
@@ -161,6 +165,7 @@ public class MovieService
             PosterUrl = movie.PosterUrl,
             TrailerUrl = movie.TrailerUrl,
             ReleaseDate = movie.ReleaseDate,
+            Category = movie.Category.ToString(),
             Status = movie.Status.ToString(),
             CreatedAt = movie.CreatedAt
         };
