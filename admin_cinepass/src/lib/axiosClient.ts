@@ -35,9 +35,13 @@ axiosClient.interceptors.response.use(
   (error) => {
     // Xử lý các lỗi global (Ví dụ: 401 - Hết hạn token)
     if (error.response && error.response.status === 401) {
-      // Xóa token và redirect về login
+      // Xóa tất cả tokens và user data
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('accessTokenExpiresAt');
+      localStorage.removeItem('refreshTokenExpiresAt');
       localStorage.removeItem('user');
+      // Redirect về login
       window.location.href = '/login';
     }
     

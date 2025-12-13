@@ -6,6 +6,7 @@ import { PATHS } from '../config/paths';
 import MainLayout from '@/layouts/MainLayout';
 import AuthLayout from '@/layouts/AuthLayout';
 import { Spinner } from '@/components/ui/spinner';
+import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 
 // Auth Pages
 import ForgotPasswordPage from '@/features/auth/ForgotPassword';
@@ -29,7 +30,7 @@ const Loadable = (Component: ComponentType<any>): ReactNode => (
 
 // --- Router Config ---
 export const router = createBrowserRouter([
-  // 1. PUBLIC ROUTES
+  // 1. PUBLIC ROUTES (Auth pages - không cần đăng nhập)
   {
     path: '/',
     element: <AuthLayout />,
@@ -40,10 +41,14 @@ export const router = createBrowserRouter([
     ]   
   },
 
-  // 2. PROTECTED ROUTES
+  // 2. PROTECTED ROUTES (Cần đăng nhập)
   {
     path: '/',
-    element: <MainLayout />, 
+    element: (
+      <ProtectedRoute>
+        <MainLayout />
+      </ProtectedRoute>
+    ), 
     children: [
       { 
         index: true, 

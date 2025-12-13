@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 // Shadcn UI Components
@@ -21,8 +21,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 // Configs
 import { PATHS } from '@/config/paths';
 
-// Services
-import { login } from '@/services/apiAuth';
+// Context
+import { useAuth } from '@/context/AuthContext';
 
 // 1. Định nghĩa Schema Validate với Zod
 // Email phải đúng định dạng, password tối thiểu 6 ký tự
@@ -36,10 +36,21 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login, isAuthenticated, isLoading: authLoading } = useAuth();
+  
   // State để quản lý việc ẩn/hiện mật khẩu
   const [showPassword, setShowPassword] = useState(false);
   // State để hiển thị loading khi đang gọi API
   const [isLoading, setIsLoading] = useState(false);
+
+  // Nếu đã đăng nhập, redirect về trang trước đó hoặc dashboard
+  useEffect(() => {
+    if (isAuthenticated) {
+      const from = (location.state as { from?: Location })?.from?.pathname || PATHS.DASHBOARD;
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, location]);
 
   // 2. Cấu hình React Hook Form
   const form = useForm<LoginValues>({
@@ -54,14 +65,12 @@ const LoginPage = () => {
   const onSubmit = async (data: LoginValues) => {
     setIsLoading(true);
     try {
-      // Gọi API đăng nhập
-      await login({
-        email: data.email,
-        password: data.password,
-      });
+      // Gọi API đăng nhập thông qua AuthContext
+      await login(data.email, data.password);
       
-      // Nếu login thành công, chuyển hướng về trang Dashboard
-      navigate(PATHS.DASHBOARD);
+      // Nếu login thành công, navigate về trang trước đó hoặc dashboard
+      const from = (location.state as { from?: Location })?.from?.pathname || PATHS.DASHBOARD;
+      navigate(from, { replace: true });
       
     } catch (error) {
       // Xử lý lỗi
@@ -82,6 +91,18 @@ const LoginPage = () => {
       setIsLoading(false); // Tắt trạng thái loading
     }
   };
+
+  // Hiển thị loading nếu đang kiểm tra authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-sm text-muted-foreground">Đang kiểm tra...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center w-full">
