@@ -59,6 +59,7 @@ CREATE TABLE movies (
     poster_url text,
     trailer_url text,
     release_date date,
+    category text CHECK (category IN ('movie', 'series', 'documentary', 'animation', 'action', 'comedy', 'drama', 'horror', 'romance', 'sci-fi', 'thriller', 'war', 'western')),
     status text CHECK (status IN ('coming_soon', 'showing', 'ended')),
     created_at timestamptz DEFAULT now()
 );

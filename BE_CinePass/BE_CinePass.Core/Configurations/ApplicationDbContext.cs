@@ -100,6 +100,11 @@ public class ApplicationDbContext : DbContext
                 .HasMaxLength(20);
             entity.Property(e => e.ReleaseDate)
                 .HasColumnType("date");
+            entity.Property(e => e.Category)
+                .HasConversion(
+                    v => v.ToString().ToLower().Replace("Movie", "movie"),
+                    v => Enum.Parse<MovieCategory>(v.Replace("movie", "Movie"), true))
+                .HasMaxLength(20);
         });
 
         // Configure Showtime

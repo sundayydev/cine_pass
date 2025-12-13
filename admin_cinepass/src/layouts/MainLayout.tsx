@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Toaster } from "@/components/ui/sonner"
 
 import { PATHS } from '@/config/paths';
 
@@ -145,6 +146,7 @@ const MainLayout = () => {
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto bg-background">
           <Outlet />
         </main>
+        <Toaster />
       </div>
     </div>
   );
