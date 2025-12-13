@@ -414,7 +414,11 @@ const MovieListPage = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => navigate(`${PATHS.MOVIES}/${movie.id}`)}
+                        onClick={() => {
+                          // Sử dụng slug nếu có, nếu không thì dùng id
+                          const slugOrId = movie.slug || movie.id;
+                          navigate(PATHS.MOVIE_DETAIL.replace(":slug", slugOrId));
+                        }}
                         className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
                         title="Xem chi tiết"
                       >
