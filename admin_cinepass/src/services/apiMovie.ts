@@ -27,6 +27,7 @@ export interface MovieCreateDto {
   posterUrl?: string;
   trailerUrl?: string;
   releaseDate?: string; // ISO date string (YYYY-MM-DDTHH:mm:ss.sssZ)
+  category: number; // MovieCategory enum
   status: number; // MovieStatus enum: 0 = ComingSoon, 1 = Showing, 2 = Ended
 }
 
@@ -41,6 +42,7 @@ export interface MovieUpdateDto {
   posterUrl?: string;
   trailerUrl?: string;
   releaseDate?: string; // ISO date string (YYYY-MM-DDTHH:mm:ss.sssZ)
+  category?: number; // MovieCategory enum
   status?: number; // MovieStatus enum: 0 = ComingSoon, 1 = Showing, 2 = Ended
 }
 
@@ -73,12 +75,105 @@ const mapStatusFromBackend = (status: string): 'COMING_SOON' | 'NOW_SHOWING' | '
 };
 
 /**
- * Helper: Map Movie từ backend sang frontend (chuyển đổi status)
+ * Helper: Map frontend MovieCategory (string) sang backend MovieCategory enum (number)
+ * Backend enum: Movie=0, Series=1, Documentary=2, Animation=3, Action=4, Comedy=5, Drama=6, Horror=7, Romance=8, SciFi=9, Thriller=10, War=11, Western=12, Musical=13, Family=14, Fantasy=15, Adventure=16, Biography=17, History=18, Sport=19, Religious=20, Other=21
+ */
+const mapCategoryToBackend = (category: string): number => {
+  const categoryMap: Record<string, number> = {
+    MOVIE: 0,
+    SERIES: 1,
+    DOCUMENTARY: 2,
+    ANIMATION: 3,
+    ACTION: 4,
+    COMEDY: 5,
+    DRAMA: 6,
+    HORROR: 7,
+    ROMANCE: 8,
+    SCIFI: 9,
+    THRILLER: 10,
+    WAR: 11,
+    WESTERN: 12,
+    MUSICAL: 13,
+    FAMILY: 14,
+    FANTASY: 15,
+    ADVENTURE: 16,
+    BIOGRAPHY: 17,
+    HISTORY: 18,
+    SPORT: 19,
+    RELIGIOUS: 20,
+    OTHER: 21,
+  };
+  return categoryMap[category] ?? 0; // Default to Movie (0)
+};
+
+/**
+ * Helper: Map backend MovieCategory enum (string/number) sang frontend MovieCategory (string)
+ */
+const mapCategoryFromBackend = (category: string | number): string => {
+  if (typeof category === 'number') {
+    const categoryMap: Record<number, string> = {
+      0: 'MOVIE',
+      1: 'SERIES',
+      2: 'DOCUMENTARY',
+      3: 'ANIMATION',
+      4: 'ACTION',
+      5: 'COMEDY',
+      6: 'DRAMA',
+      7: 'HORROR',
+      8: 'ROMANCE',
+      9: 'SCIFI',
+      10: 'THRILLER',
+      11: 'WAR',
+      12: 'WESTERN',
+      13: 'MUSICAL',
+      14: 'FAMILY',
+      15: 'FANTASY',
+      16: 'ADVENTURE',
+      17: 'BIOGRAPHY',
+      18: 'HISTORY',
+      19: 'SPORT',
+      20: 'RELIGIOUS',
+      21: 'OTHER',
+    };
+    return categoryMap[category] || 'MOVIE';
+  }
+  
+  // If string, map PascalCase to UPPER_SNAKE_CASE
+  const categoryMap: Record<string, string> = {
+    Movie: 'MOVIE',
+    Series: 'SERIES',
+    Documentary: 'DOCUMENTARY',
+    Animation: 'ANIMATION',
+    Action: 'ACTION',
+    Comedy: 'COMEDY',
+    Drama: 'DRAMA',
+    Horror: 'HORROR',
+    Romance: 'ROMANCE',
+    SciFi: 'SCIFI',
+    Thriller: 'THRILLER',
+    War: 'WAR',
+    Western: 'WESTERN',
+    Musical: 'MUSICAL',
+    Family: 'FAMILY',
+    Fantasy: 'FANTASY',
+    Adventure: 'ADVENTURE',
+    Biography: 'BIOGRAPHY',
+    History: 'HISTORY',
+    Sport: 'SPORT',
+    Religious: 'RELIGIOUS',
+    Other: 'OTHER',
+  };
+  return categoryMap[category] || 'MOVIE';
+};
+
+/**
+ * Helper: Map Movie từ backend sang frontend (chuyển đổi status và category)
  */
 const mapMovieFromBackend = (movie: Movie): Movie => {
   return {
     ...movie,
     status: mapStatusFromBackend(movie.status),
+    category: mapCategoryFromBackend(movie.category) as any,
   };
 };
 
@@ -225,6 +320,7 @@ export const create = async (payload: MoviePayload): Promise<Movie> => {
     title: payload.title,
     durationMinutes: payload.durationMinutes,
     status: mapStatusToBackend(payload.status),
+    category: mapCategoryToBackend(payload.category),
     // Chỉ thêm các field optional nếu có giá trị
     ...(payload.description && { description: payload.description }),
     ...(payload.trailerUrl && { trailerUrl: payload.trailerUrl }),
@@ -280,6 +376,9 @@ export const update = async (id: string, payload: Partial<MoviePayload>): Promis
   }
   if (payload.status !== undefined) {
     dto.status = mapStatusToBackend(payload.status);
+  }
+  if (payload.category !== undefined) {
+    dto.category = mapCategoryToBackend(payload.category);
   }
 
   const response = (await axiosClient.put(
