@@ -13,6 +13,8 @@ import ResetPasswordPage from '@/features/auth/ResetPassword';
 import DashboardPage from '@/features/dashboard';
 import MovieListPage from '@/features/movies';
 import CreateMoviePage from '@/features/movies/CreateMovie';
+import EditMoviePage from '@/features/movies/EditMovie';
+import MovieDetailPage from '@/features/movies/MovieDetail';
 
 // --- Lazy Load Pages ---
 // Auth
@@ -50,6 +52,8 @@ export const router = createBrowserRouter([
       { path: PATHS.DASHBOARD, element: Loadable(DashboardPage) },
       { path: PATHS.MOVIES, element: Loadable(MovieListPage) },
       { path: PATHS.MOVIE_CREATE, element: Loadable(CreateMoviePage) },
+      { path: PATHS.MOVIE_EDIT, element: Loadable(EditMoviePage) },
+      { path: PATHS.MOVIE_DETAIL, element: Loadable(MovieDetailPage) },
     ]
   },
 

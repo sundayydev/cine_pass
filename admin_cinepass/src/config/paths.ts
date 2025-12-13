@@ -11,7 +11,8 @@ export const PATHS = {
     // Movies (Quản lý phim)
     MOVIES: '/movies',
     MOVIE_CREATE: '/movies/create',
-    MOVIE_EDIT: '/movies/:id', // Dùng dynamic param :id
+    MOVIE_EDIT: '/movies/edit/:id', // Dùng dynamic param :id
+    MOVIE_DETAIL: '/movies/:slug', // Dùng slug để xem chi tiết
 
     // Cinemas (Quản lý Rạp & Phòng & Ghế)
     CINEMAS: '/cinemas',

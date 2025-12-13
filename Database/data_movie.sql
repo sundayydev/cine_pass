@@ -3,7 +3,7 @@ INSERT INTO movies
 VALUES
 (gen_random_uuid(), 'Dune: Part Two', 'dune-part-two', 166,
  'Paul Atreides unites with the Fremen to seek revenge against the conspirators.',
- 'https://image.tmdb.org/t/p/w500/dune2.jpg',
+ 'https://s3.amazonaws.com/nightjarprod/content/uploads/sites/189/2024/05/29150236/czembW0Rk1Ke7lCJGahbOhdCuhV-scaled.jpg',
  'https://youtube.com/watch?v=Way9Dexny3w',
  '2024-03-01', 0, 1, NOW()),
 
