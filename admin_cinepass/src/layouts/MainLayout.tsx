@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Film, 
@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Toaster } from "@/components/ui/sonner"
 
 import { PATHS } from '@/config/paths';
+import { useAuth } from '@/context/AuthContext';
 
 // 1. Cấu hình Menu Items
 const NAV_ITEMS = [
@@ -39,13 +40,18 @@ const NAV_ITEMS = [
 ];
 
 const MainLayout = () => {
-  const navigate = useNavigate();
+  const { logout } = useAuth();
   // State để đóng mở Sheet trên mobile (nếu cần control thủ công)
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const handleLogout = () => {
-    // Xử lý logout logic ở đây (clear token, context...)
-    navigate(PATHS.LOGIN);
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // AuthContext sẽ tự động navigate về login và clear state
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Ngay cả khi có lỗi, vẫn redirect về login
+    }
   };
 
   // 2. Component Sidebar nội bộ (dùng chung cho Desktop và Mobile)
