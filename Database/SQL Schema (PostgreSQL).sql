@@ -16,11 +16,37 @@ CREATE TABLE users (
 
 -- 2. HẠ TẦNG RẠP CHIẾU (Cinema -> Screen -> Seat)
 CREATE TABLE cinemas (
+    -- Định danh
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    
+    -- Thông tin cơ bản
     name text NOT NULL,
+    slug text UNIQUE NOT NULL, -- Cần thiết cho URL website (VD: /rap/cgv-ba-trieu)
+    description text, -- Mô tả giới thiệu rạp
+    
+    -- Liên hệ & Địa điểm
     address text,
-    city text, -- Thêm city để lọc theo khu vực
-    is_active boolean DEFAULT true
+    district text, -- Thêm quận/huyện để lọc chi tiết hơn
+    city text,
+    phone text,
+    email text,
+    website text, -- Link website riêng hoặc fanpage (nếu có)
+    
+    -- Tọa độ (Dùng để tính khoảng cách "Rạp gần đây" trên Google Maps)
+    latitude double precision, 
+    longitude double precision, 
+    
+    -- Hình ảnh
+    banner_url text, -- Ảnh bìa rạp hiển thị trên app
+    
+    -- Thông tin phụ
+    total_screens integer DEFAULT 0, -- Tổng số phòng chiếu tại rạp này
+    facilities text[], -- Mảng các tiện ích (VD: ['Parking', 'Wifi', 'Dolby Atmos'])
+    
+    -- Trạng thái & Audit
+    is_active boolean DEFAULT true,
+    created_at timestamptz DEFAULT now(), -- Thời điểm tạo
+    updated_at timestamptz DEFAULT now()  -- Thời điểm cập nhật cuối
 );
 
 CREATE TABLE screens (

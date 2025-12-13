@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Migrations;
 
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace BE_CinePass.API.Migrations
 {
     /// <inheritdoc />
-    public partial class AddCategoryMovie : Migration
+    public partial class Init : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -18,9 +19,21 @@ namespace BE_CinePass.API.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    slug = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    description = table.Column<string>(type: "text", nullable: true),
                     address = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     city = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    is_active = table.Column<bool>(type: "boolean", nullable: false)
+                    phone = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    website = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    latitude = table.Column<double>(type: "double precision", nullable: true),
+                    longitude = table.Column<double>(type: "double precision", nullable: true),
+                    banner_url = table.Column<string>(type: "text", nullable: true),
+                    total_screens = table.Column<int>(type: "integer", nullable: false),
+                    facilities = table.Column<List<string>>(type: "text[]", nullable: true),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
