@@ -47,6 +47,14 @@ public class CinemaService
             Name = dto.Name,
             Address = dto.Address,
             City = dto.City,
+            Phone = dto.Phone,
+            Email = dto.Email,
+            Website = dto.Website,
+            Latitude = dto.Latitude,
+            Longitude = dto.Longitude,
+            BannerUrl = dto.BannerUrl,
+            TotalScreens = dto.TotalScreens,
+            Facilities = dto.Facilities,
             IsActive = dto.IsActive
         };
 
@@ -70,10 +78,42 @@ public class CinemaService
 
         if (dto.City != null)
             cinema.City = dto.City;
-
+        
+        if (dto.Phone != null)
+            cinema.Phone = dto.Phone;
+        
+        if (dto.Email != null)
+            cinema.Email = dto.Email;
+        
+        if (dto.Website != null)
+            cinema.Website = dto.Website;
+        
+        if (dto.Latitude != null)
+            cinema.Latitude = dto.Latitude;
+        
+        if (dto.Longitude != null)
+            cinema.Longitude = dto.Longitude;
+        
+        if (dto.BannerUrl != null)
+            cinema.BannerUrl = dto.BannerUrl;
+        
+        if (dto.TotalScreens.HasValue)
+            cinema.TotalScreens = dto.TotalScreens.Value;
+        
+        if (dto.Facilities != null)
+            cinema.Facilities = dto.Facilities;
+        
+        if (dto.Slug != null)
+            cinema.Slug = dto.Slug;
+        
+        if (dto.Description != null)
+            cinema.Description = dto.Description;
+        
         if (dto.IsActive.HasValue)
             cinema.IsActive = dto.IsActive.Value;
 
+        cinema.UpdatedAt = DateTime.UtcNow;
+        
         _cinemaRepository.Update(cinema);
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -96,7 +136,17 @@ public class CinemaService
             Name = cinema.Name,
             Address = cinema.Address,
             City = cinema.City,
-            IsActive = cinema.IsActive
+            Phone = cinema.Phone,
+            Email = cinema.Email,
+            Website = cinema.Website,
+            Latitude = cinema.Latitude,
+            Longitude = cinema.Longitude,
+            BannerUrl = cinema.BannerUrl,
+            TotalScreens = cinema.TotalScreens,
+            Facilities = cinema.Facilities,
+            IsActive = cinema.IsActive,
+            CreatedAt = cinema.CreatedAt,
+            UpdatedAt = cinema.UpdatedAt
         };
     }
 }

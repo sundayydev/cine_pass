@@ -17,6 +17,13 @@ import CreateMoviePage from '@/features/movies/CreateMovie';
 import EditMoviePage from '@/features/movies/EditMovie';
 import MovieDetailPage from '@/features/movies/MovieDetail';
 
+// Cinema Pages
+import CinemasListPage from '@/features/cinemas';
+import CreateCinemaPage from '@/features/cinemas/CreateCinema';
+import EditCinemaPage from '@/features/cinemas/EditCinema';
+import CinemaDetailPage from '@/features/cinemas/CinemaDetail';
+import ScreenSeatsPage from '@/features/cinemas/ScreenSeats';
+
 // --- Lazy Load Pages ---
 // Auth
 const LoginPage = lazy(() => import('@/features/auth/Login'));
@@ -59,6 +66,11 @@ export const router = createBrowserRouter([
       { path: PATHS.MOVIE_CREATE, element: Loadable(CreateMoviePage) },
       { path: PATHS.MOVIE_EDIT, element: Loadable(EditMoviePage) },
       { path: PATHS.MOVIE_DETAIL, element: Loadable(MovieDetailPage) },
+      { path: PATHS.CINEMAS, element: Loadable(CinemasListPage) },
+      { path: PATHS.CINEMA_CREATE, element: Loadable(CreateCinemaPage) },
+      { path: PATHS.CINEMA_DETAIL, element: Loadable(CinemaDetailPage) },
+      { path: '/cinemas/edit/:id', element: Loadable(EditCinemaPage) },
+      { path: '/cinemas/:cinemaId/screens/:roomId/seats', element: Loadable(ScreenSeatsPage) },
     ]
   },
 

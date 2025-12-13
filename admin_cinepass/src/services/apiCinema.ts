@@ -17,10 +17,18 @@ export interface ApiResponseDto<T> {
  */
 export interface CinemaCreateDto {
   name: string;
-  address: string;
-  city: string;
+  slug?: string;
+  description?: string;
+  address?: string;
+  city?: string;
   phone?: string;
   email?: string;
+  website?: string;
+  latitude?: number;
+  longitude?: number;
+  bannerUrl?: string;
+  totalScreens?: number;
+  facilities?: string[];
   isActive?: boolean;
 }
 
@@ -29,10 +37,18 @@ export interface CinemaCreateDto {
  */
 export interface CinemaUpdateDto {
   name?: string;
+  slug?: string;
+  description?: string;
   address?: string;
   city?: string;
   phone?: string;
   email?: string;
+  website?: string;
+  latitude?: number;
+  longitude?: number;
+  bannerUrl?: string;
+  totalScreens?: number;
+  facilities?: string[];
   isActive?: boolean;
 }
 
@@ -42,13 +58,21 @@ export interface CinemaUpdateDto {
 export interface CinemaResponseDto {
   id: string;
   name: string;
-  address: string;
-  city: string;
+  slug: string;
+  description?: string;
+  address?: string;
+  city?: string;
   phone?: string;
   email?: string;
+  website?: string;
+  latitude?: number;
+  longitude?: number;
+  bannerUrl?: string;
+  totalScreens: number;
+  facilities?: string[];
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ==================== API FUNCTIONS ====================
