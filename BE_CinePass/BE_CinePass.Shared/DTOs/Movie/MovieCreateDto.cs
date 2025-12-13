@@ -29,6 +29,9 @@ public class MovieCreateDto
     public DateTime? ReleaseDate { get; set; }
 
     [Required]
+    public MovieCategory Category { get; set; }
+
+    [Required]
     public MovieStatus Status { get; set; }
 }
 

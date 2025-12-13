@@ -10,6 +10,8 @@ export type MovieStatus = 'COMING_SOON' | 'NOW_SHOWING' | 'ENDED' | 'CANCELLED';
 //   Ended = 2
 // }
 
+  export type MovieCategory = 'MOVIE' | 'SERIES' | 'DOCUMENTARY' | 'ANIMATION' | 'ACTION' | 'COMEDY' | 'DRAMA' | 'HORROR' | 'ROMANCE' | 'SCI_FI' | 'THRILLER' | 'WAR' | 'WESTERN' | 'MUSICAL' | 'FAMILY' | 'FANTASY' | 'ADVENTURE' | 'BIOGRAPHY' | 'HISTORY' | 'SPORT' | 'OTHER';
+
 // 2. Interface chính hiển thị dữ liệu (Response từ API)
 export interface Movie {
   id: string;                    // Guid
@@ -20,6 +22,7 @@ export interface Movie {
   posterUrl?: string;            // Nullable (URL ảnh)
   trailerUrl?: string;           // Nullable
   releaseDate?: string;          // DateTime -> ISO Date String (VD: "2025-10-20T00:00:00Z")
+  category: MovieCategory;
   status: MovieStatus;
   createdAt: string;
   
@@ -36,7 +39,7 @@ export interface MoviePayload {
   releaseDate?: string | Date;   // Form có thể lưu dạng Date object
   trailerUrl?: string;
   status: MovieStatus;
-  
+  category: MovieCategory;
   // Xử lý upload ảnh:
   // Khi gửi lên: dùng File
   // Khi edit nhưng không đổi ảnh: không gửi trường này
@@ -49,4 +52,5 @@ export interface MovieFilters {
   limit?: number;
   search?: string;
   status?: MovieStatus | 'all';
+  category?: MovieCategory | 'all';
 }

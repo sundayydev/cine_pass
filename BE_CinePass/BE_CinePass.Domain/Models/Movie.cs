@@ -37,7 +37,8 @@ public class Movie
 
     [Column("release_date", TypeName = "date")]
     public DateTime? ReleaseDate { get; set; }
-
+    [Column("category")]
+    public MovieCategory Category { get; set; } = MovieCategory.Movie;
     [Required]
     [Column("status")]
     public MovieStatus Status { get; set; }

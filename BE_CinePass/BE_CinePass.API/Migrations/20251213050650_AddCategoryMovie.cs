@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace BE_CinePass.API.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class AddCategoryMovie : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -39,6 +39,7 @@ namespace BE_CinePass.API.Migrations
                     poster_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     trailer_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     release_date = table.Column<DateTime>(type: "date", nullable: true),
+                    category = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },

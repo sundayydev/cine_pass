@@ -1,3 +1,5 @@
+using BE_CinePass.Shared.Common;
+
 namespace BE_CinePass.Shared.DTOs.Movie;
 
 public class MovieResponseDto
@@ -10,6 +12,7 @@ public class MovieResponseDto
     public string? PosterUrl { get; set; }
     public string? TrailerUrl { get; set; }
     public DateTime? ReleaseDate { get; set; }
+    public string Category { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 }

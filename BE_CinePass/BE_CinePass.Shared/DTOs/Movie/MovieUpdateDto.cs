@@ -25,6 +25,7 @@ public class MovieUpdateDto
     public string? TrailerUrl { get; set; }
 
     public DateTime? ReleaseDate { get; set; }
+    public MovieCategory? Category { get; set; }
 
     public MovieStatus? Status { get; set; }
 }
