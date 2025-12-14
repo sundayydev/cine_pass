@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Pencil, Trash2, Users, MapPin, Phone, Mail, Building2, Globe, Image, MapPinned } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Users, MapPin, Phone, Mail, Building2, Globe, Image, MapPinned, Armchair } from "lucide-react";
 import { toast } from "sonner";
 
 // API Services
@@ -38,9 +38,15 @@ const CinemaDetailPage = () => {
   // Form state for creating screen
   const [screenForm, setScreenForm] = useState({
     name: "",
-    capacity: "",
-    description: "",
+    totalSeats: "",
+    seatMapLayout: "",
   });
+  
+  // Seat map editor state
+  const [seatMapRows, setSeatMapRows] = useState(10);
+  const [seatMapCols, setSeatMapCols] = useState(15);
+  const [seatMap, setSeatMap] = useState<boolean[][]>([]);
+  const [showSeatMapEditor, setShowSeatMapEditor] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -68,10 +74,65 @@ const CinemaDetailPage = () => {
     }
   };
 
+  // Initialize seat map
+  const initializeSeatMap = () => {
+    const newMap: boolean[][] = Array(seatMapRows)
+      .fill(null)
+      .map(() => Array(seatMapCols).fill(false));
+    setSeatMap(newMap);
+  };
+
+  // Toggle seat in map
+  const toggleSeat = (row: number, col: number) => {
+    const newMap = seatMap.map((r, rIdx) =>
+      rIdx === row
+        ? r.map((seat, cIdx) => (cIdx === col ? !seat : seat))
+        : r
+    );
+    setSeatMap(newMap);
+    updateSeatMapLayout(newMap);
+  };
+
+  // Update seat map layout JSON
+  const updateSeatMapLayout = (map: boolean[][]) => {
+    const layout: (string | null)[][] = map.map((row, rowIdx) =>
+      row.map((hasSeat, colIdx) => {
+        if (!hasSeat) return null;
+        const rowLabel = String.fromCharCode(65 + rowIdx); // A, B, C, ...
+        return `${rowLabel}${colIdx + 1}`;
+      })
+    );
+    setScreenForm({ ...screenForm, seatMapLayout: JSON.stringify(layout) });
+  };
+
+  // Load seat map from JSON
+  const loadSeatMapFromLayout = (layoutJson: string) => {
+    try {
+      if (!layoutJson) {
+        initializeSeatMap();
+        return;
+      }
+      const layout: (string | null)[][] = JSON.parse(layoutJson);
+      const rows = layout.length;
+      const cols = layout[0]?.length || 0;
+      
+      setSeatMapRows(rows);
+      setSeatMapCols(cols);
+      
+      const newMap: boolean[][] = layout.map((row) =>
+        row.map((seat) => seat !== null)
+      );
+      setSeatMap(newMap);
+    } catch (error) {
+      console.error("Error parsing seat map layout:", error);
+      initializeSeatMap();
+    }
+  };
+
   const handleCreateScreen = async () => {
     if (!id) return;
 
-    if (!screenForm.name || !screenForm.capacity) {
+    if (!screenForm.name || !screenForm.totalSeats) {
       toast.error("Vui lòng điền đầy đủ thông tin");
       return;
     }
@@ -81,12 +142,14 @@ const CinemaDetailPage = () => {
       await screenApi.create({
         cinemaId: id,
         name: screenForm.name,
-        capacity: parseInt(screenForm.capacity),
-        description: screenForm.description || undefined,
+        totalSeats: parseInt(screenForm.totalSeats),
+        seatMapLayout: screenForm.seatMapLayout || undefined,
       });
       toast.success("Tạo phòng chiếu thành công");
       setIsCreateScreenOpen(false);
-      setScreenForm({ name: "", capacity: "", description: "" });
+      setScreenForm({ name: "", totalSeats: "", seatMapLayout: "" });
+      setShowSeatMapEditor(false);
+      setSeatMap([]);
       loadData();
     } catch (error) {
       console.error("Error creating screen:", error);
@@ -286,7 +349,7 @@ const CinemaDetailPage = () => {
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">Tổng sức chứa</p>
               <p className="text-2xl font-bold">
-                {screens.reduce((sum, screen) => sum + screen.capacity, 0)}
+                {screens.reduce((sum, screen) => sum + screen.totalSeats, 0)}
               </p>
             </div>
             {cinema.createdAt && (
@@ -331,26 +394,28 @@ const CinemaDetailPage = () => {
                 <TableRow>
                   <TableHead>Tên Phòng</TableHead>
                   <TableHead>Sức Chứa</TableHead>
-                  <TableHead>Mô Tả</TableHead>
+                  <TableHead>Bản Đồ Ghế</TableHead>
+                  <TableHead>Ngày Cập Nhật</TableHead>
                   <TableHead>Ngày Tạo</TableHead>
-                  <TableHead className="text-right">Thao Tác</TableHead>
+                  <TableHead className="text-center w-1/8">Thao Tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {screens.map((screen) => (
                   <TableRow key={screen.id}>
                     <TableCell className="font-medium">{screen.name}</TableCell>
-                    <TableCell>{screen.capacity}</TableCell>
-                    <TableCell>{screen.description || "-"}</TableCell>
-                    <TableCell>{formatDate(screen.createdAt)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <TableCell>{screen.totalSeats}</TableCell>
+                    <TableCell>{screen.seatMapLayout || "-"}</TableCell>
+                    <TableCell>{screen.updatedAt ? formatDate(screen.updatedAt) : "-"}</TableCell>
+                    <TableCell>{screen.createdAt ? formatDate(screen.createdAt) : "-"}</TableCell>
+                    <TableCell className="w-1/8">
+                      <div className="flex items-center justify-center gap-2">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => navigate(`/cinemas/${id}/screens/${screen.id}/seats`)}
                         >
-                          <Users className="h-4 w-4" />
+                          <Armchair className="h-4 w-4 text-green-500 hover:text-green-900" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -388,30 +453,163 @@ const CinemaDetailPage = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="capacity">Sức Chứa *</Label>
+                <Label htmlFor="totalSeats">Sức Chứa *</Label>
                 <Input
-                  id="capacity"
+                  id="totalSeats"
                   type="number"
                   placeholder="Ví dụ: 100"
-                  value={screenForm.capacity}
-                  onChange={(e) => setScreenForm({ ...screenForm, capacity: e.target.value })}
+                  value={screenForm.totalSeats}
+                  onChange={(e) => setScreenForm({ ...screenForm, totalSeats: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Mô Tả</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Mô tả về phòng chiếu..."
-                  value={screenForm.description}
-                  onChange={(e) => setScreenForm({ ...screenForm, description: e.target.value })}
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="seatMapLayout">Bản Đồ Ghế</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (showSeatMapEditor) {
+                        loadSeatMapFromLayout(screenForm.seatMapLayout);
+                      } else {
+                        if (screenForm.seatMapLayout) {
+                          loadSeatMapFromLayout(screenForm.seatMapLayout);
+                        } else {
+                          initializeSeatMap();
+                        }
+                      }
+                      setShowSeatMapEditor(!showSeatMapEditor);
+                    }}
+                  >
+                    {showSeatMapEditor ? "Ẩn Bản Đồ" : "Hiện Bản Đồ"}
+                  </Button>
+                </div>
+                
+                {showSeatMapEditor ? (
+                  <div className="space-y-4 border rounded-lg p-4">
+                    {/* Controls */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="rows">Số Hàng</Label>
+                        <Input
+                          id="rows"
+                          type="number"
+                          min="1"
+                          max="26"
+                          value={seatMapRows}
+                          onChange={(e) => {
+                            const rows = parseInt(e.target.value) || 1;
+                            setSeatMapRows(rows);
+                            const newMap: boolean[][] = Array(rows)
+                              .fill(null)
+                              .map(() => Array(seatMapCols).fill(false));
+                            setSeatMap(newMap);
+                            updateSeatMapLayout(newMap);
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cols">Số Cột</Label>
+                        <Input
+                          id="cols"
+                          type="number"
+                          min="1"
+                          max="50"
+                          value={seatMapCols}
+                          onChange={(e) => {
+                            const cols = parseInt(e.target.value) || 1;
+                            setSeatMapCols(cols);
+                            const newMap: boolean[][] = Array(seatMapRows)
+                              .fill(null)
+                              .map(() => Array(cols).fill(false));
+                            setSeatMap(newMap);
+                            updateSeatMapLayout(newMap);
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Seat Map Grid */}
+                    <div className="space-y-2">
+                      <Label>Bấm vào ô để thêm/xóa ghế</Label>
+                      <div className="border rounded-lg p-4 bg-muted/30 overflow-auto max-h-[400px]">
+                        {/* Screen indicator */}
+                        <div className="text-center py-2 bg-muted rounded-lg mb-4">
+                          <p className="text-sm font-medium">Màn hình</p>
+                        </div>
+                        
+                        {/* Seat grid */}
+                        <div className="space-y-1">
+                          {/* Column headers */}
+                          <div className="flex gap-1 mb-2">
+                            <div className="w-8"></div>
+                            {Array.from({ length: seatMapCols }, (_, i) => (
+                              <div
+                                key={i}
+                                className="w-8 h-8 flex items-center justify-center text-xs font-semibold"
+                              >
+                                {i + 1}
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Rows */}
+                          {seatMap.map((row, rowIdx) => (
+                            <div key={rowIdx} className="flex items-center gap-1">
+                              <div className="w-8 h-8 flex items-center justify-center text-sm font-semibold">
+                                {String.fromCharCode(65 + rowIdx)}
+                              </div>
+                              {row.map((hasSeat, colIdx) => (
+                                <button
+                                  key={colIdx}
+                                  type="button"
+                                  onClick={() => toggleSeat(rowIdx, colIdx)}
+                                  className={`w-8 h-8 rounded border-2 transition-all ${
+                                    hasSeat
+                                      ? "bg-emerald-500 border-emerald-600 hover:bg-emerald-600"
+                                      : "bg-gray-200 border-gray-300 hover:bg-gray-300"
+                                  }`}
+                                  title={`${String.fromCharCode(65 + rowIdx)}${colIdx + 1}`}
+                                />
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Legend */}
+                      <div className="flex gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded border-2 bg-emerald-500 border-emerald-600"></div>
+                          <span>Có ghế</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded border-2 bg-gray-200 border-gray-300"></div>
+                          <span>Không có ghế</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Textarea
+                    id="seatMapLayout"
+                    placeholder="JSON layout hoặc bấm 'Hiện Bản Đồ' để vẽ trực quan..."
+                    value={screenForm.seatMapLayout}
+                    onChange={(e) => setScreenForm({ ...screenForm, seatMapLayout: e.target.value })}
+                    className="font-mono text-xs"
+                    rows={4}
+                  />
+                )}
               </div>
               <div className="flex items-center justify-end gap-4">
                 <Button
                   variant="outline"
                   onClick={() => {
                     setIsCreateScreenOpen(false);
-                    setScreenForm({ name: "", capacity: "", description: "" });
+                    setScreenForm({ name: "", totalSeats: "", seatMapLayout: "" });
+                    setShowSeatMapEditor(false);
+                    setSeatMap([]);
                   }}
                   disabled={isCreatingScreen}
                 >

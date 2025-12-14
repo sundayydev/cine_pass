@@ -17,9 +17,10 @@ export interface ApiResponseDto<T> {
  */
 export interface SeatCreateDto {
   screenId: string;
-  seatTypeCode: string;
-  row: string;
-  column: number;
+  seatRow: string;
+  seatNumber: number;
+  seatCode: string;
+  seatTypeCode?: string;
   isActive?: boolean;
 }
 
@@ -27,10 +28,7 @@ export interface SeatCreateDto {
  * DTO cho cập nhật ghế
  */
 export interface SeatUpdateDto {
-  screenId?: string;
   seatTypeCode?: string;
-  row?: string;
-  column?: number;
   isActive?: boolean;
 }
 
@@ -40,12 +38,11 @@ export interface SeatUpdateDto {
 export interface SeatResponseDto {
   id: string;
   screenId: string;
-  seatTypeCode: string;
-  row: string;
-  column: number;
+  seatRow: string;
+  seatNumber: number;
+  seatCode: string;
+  seatTypeCode?: string;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
 // ==================== API FUNCTIONS ====================

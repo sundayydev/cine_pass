@@ -117,7 +117,9 @@ namespace BE_CinePass.API.Migrations
                     cinema_id = table.Column<Guid>(type: "uuid", nullable: false),
                     name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     total_seats = table.Column<int>(type: "integer", nullable: false),
-                    seat_map_layout = table.Column<JsonDocument>(type: "jsonb", nullable: true)
+                    seat_map_layout = table.Column<JsonDocument>(type: "jsonb", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -162,6 +164,7 @@ namespace BE_CinePass.API.Migrations
                     seat_number = table.Column<int>(type: "integer", nullable: false),
                     seat_code = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     seat_type_code = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    qr_ordering_code = table.Column<string>(type: "text", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>

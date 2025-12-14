@@ -14,6 +14,12 @@ export const PATHS = {
     MOVIE_EDIT: '/movies/edit/:id', // Dùng dynamic param :id
     MOVIE_DETAIL: '/movies/:slug', // Dùng slug để xem chi tiết
 
+    // Seat Types (Quản lý Loại Ghế)
+    SEAT_TYPES: '/seat-types',
+    SEAT_TYPE_CREATE: '/seat-types/create',
+    SEAT_TYPE_EDIT: '/seat-types/edit/:code',
+    SEAT_TYPE_DETAIL: '/seat-types/:code',
+
     // Cinemas (Quản lý Rạp & Phòng & Ghế)
     CINEMAS: '/cinemas',
     CINEMA_CREATE: '/cinemas/create',

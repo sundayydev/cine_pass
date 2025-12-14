@@ -89,6 +89,7 @@ public class ScreenService
             }
         }
 
+        screen.UpdatedAt = DateTime.UtcNow;
         _screenRepository.Update(screen);
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -111,7 +112,9 @@ public class ScreenService
             CinemaId = screen.CinemaId,
             Name = screen.Name,
             TotalSeats = screen.TotalSeats,
-            SeatMapLayout = screen.SeatMapLayout?.RootElement.GetRawText()
+            SeatMapLayout = screen.SeatMapLayout?.RootElement.GetRawText(),
+            CreatedAt = screen.CreatedAt,
+            UpdatedAt = screen.UpdatedAt,
         };
     }
 }
