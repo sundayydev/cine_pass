@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NanoidDotNet;
 
 namespace BE_CinePass.Domain.Models;
 
@@ -31,6 +32,9 @@ public class Seat
     [MaxLength(50)]
     [Column("seat_type_code")]
     public string? SeatTypeCode { get; set; }
+
+    [Column("qr_ordering_code")]
+    public string QrOrderingCode { get; set; } = Nanoid.Generate(size: 6);
 
     [Column("is_active")]
     public bool IsActive { get; set; } = true;

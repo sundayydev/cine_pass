@@ -184,8 +184,11 @@ export const deleteCinema = async (id: string): Promise<void> => {
     `/api/cinemas/${id}`
   )) as ApiResponseDto<unknown>;
 
-  if (!response.success) {
-    throw new Error(response.message || `Không tìm thấy rạp chiếu phim có ID ${id}`);
+  if (response && typeof response === 'object' && 'success' in response) {
+    const errorResponse = response as ApiResponseDto<unknown>;
+    if (!errorResponse.success) {
+      throw new Error(errorResponse.message || `Không tìm thấy rạp chiếu phim có ID ${id}`);
+    }
   }
 };
 

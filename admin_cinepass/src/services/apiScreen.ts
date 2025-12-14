@@ -18,18 +18,18 @@ export interface ApiResponseDto<T> {
 export interface ScreenCreateDto {
   cinemaId: string;
   name: string;
-  capacity: number;
-  description?: string;
+  totalSeats: number;
+  seatMapLayout?: string; // JSON string
+
 }
 
 /**
  * DTO cho cập nhật màn hình
  */
 export interface ScreenUpdateDto {
-  cinemaId?: string;
   name?: string;
-  capacity?: number;
-  description?: string;
+  totalSeats?: number;
+  seatMapLayout?: string; // JSON string
 }
 
 /**
@@ -39,10 +39,10 @@ export interface ScreenResponseDto {
   id: string;
   cinemaId: string;
   name: string;
-  capacity: number;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
+  totalSeats: number;
+  seatMapLayout?: string; // JSON string (parsed from JsonDocument)
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ==================== API FUNCTIONS ====================

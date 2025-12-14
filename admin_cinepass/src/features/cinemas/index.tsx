@@ -72,8 +72,8 @@ const CinemasListPage = () => {
         data = data.filter(
           (cinema) =>
             cinema.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-            cinema.address.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-            cinema.city.toLowerCase().includes(debouncedSearch.toLowerCase())
+            cinema.address?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+            cinema.city?.toLowerCase().includes(debouncedSearch.toLowerCase())
         );
       }
 
@@ -172,7 +172,7 @@ const CinemasListPage = () => {
               <SelectContent>
                 <SelectItem value="all">Tất cả thành phố</SelectItem>
                 {uniqueCities.map((city) => (
-                  <SelectItem key={city} value={city}>
+                  <SelectItem key={city} value={city || ""}>
                     {city}
                   </SelectItem>
                 ))}
@@ -246,7 +246,7 @@ const CinemasListPage = () => {
                         <Badge variant="outline">Ngừng hoạt động</Badge>
                       )}
                     </TableCell>
-                    <TableCell>{formatDate(cinema.createdAt)}</TableCell>
+                    <TableCell>{formatDate(cinema.createdAt || new Date().toISOString())}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button

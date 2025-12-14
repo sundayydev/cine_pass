@@ -9,7 +9,8 @@ import {
   Users, 
   Menu, 
   LogOut,
-  Settings
+  Settings,
+  Armchair
 } from 'lucide-react';
 
 // Shadcn Components
@@ -33,6 +34,7 @@ import { useAuth } from '@/context/AuthContext';
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, path: PATHS.DASHBOARD },
   { label: 'Phim', icon: Film, path: PATHS.MOVIES },
+  { label: 'Loại Ghế', icon: Armchair, path: PATHS.SEAT_TYPES },
   { label: 'Rạp & Phòng', icon: Tv, path: PATHS.CINEMAS }, // Icon Tv đại diện cho màn hình chiếu
   { label: 'Lịch Chiếu', icon: CalendarDays, path: PATHS.SHOWTIMES },
   { label: 'Vé Đặt', icon: Ticket, path: PATHS.BOOKINGS },
