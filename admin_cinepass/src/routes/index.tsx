@@ -23,6 +23,9 @@ import CreateCinemaPage from '@/features/cinemas/CreateCinema';
 import EditCinemaPage from '@/features/cinemas/EditCinema';
 import CinemaDetailPage from '@/features/cinemas/CinemaDetail';
 import ScreenSeatsPage from '@/features/cinemas/ScreenSeats';
+import SeatTypesListPage from '@/features/seat-types';
+import CreateSeatTypePage from '@/features/seat-types/CreateSeatType';
+import EditSeatTypePage from '@/features/seat-types/EditSeatType';
 
 // --- Lazy Load Pages ---
 // Auth
@@ -71,6 +74,9 @@ export const router = createBrowserRouter([
       { path: PATHS.CINEMA_DETAIL, element: Loadable(CinemaDetailPage) },
       { path: '/cinemas/edit/:id', element: Loadable(EditCinemaPage) },
       { path: '/cinemas/:cinemaId/screens/:roomId/seats', element: Loadable(ScreenSeatsPage) },
+      { path: PATHS.SEAT_TYPES, element: Loadable(SeatTypesListPage) },
+      { path: PATHS.SEAT_TYPE_CREATE, element: Loadable(CreateSeatTypePage) },
+      { path: PATHS.SEAT_TYPE_EDIT, element: Loadable(EditSeatTypePage) },
     ]
   },
 

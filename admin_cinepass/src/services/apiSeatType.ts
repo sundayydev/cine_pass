@@ -17,9 +17,8 @@ export interface ApiResponseDto<T> {
  */
 export interface SeatTypeCreateDto {
   code: string;
-  name: string;
-  price: number;
-  description?: string;
+  name?: string;
+  surchargeRate: number;
 }
 
 /**
@@ -27,8 +26,7 @@ export interface SeatTypeCreateDto {
  */
 export interface SeatTypeUpdateDto {
   name?: string;
-  price?: number;
-  description?: string;
+  surchargeRate?: number;
 }
 
 /**
@@ -36,11 +34,8 @@ export interface SeatTypeUpdateDto {
  */
 export interface SeatTypeResponseDto {
   code: string;
-  name: string;
-  price: number;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
+  name?: string;
+  surchargeRate: number;
 }
 
 // ==================== API FUNCTIONS ====================
@@ -116,13 +111,17 @@ export const update = async (code: string, dto: SeatTypeUpdateDto): Promise<Seat
  * DELETE /api/seattypes/{code}
  */
 export const deleteSeatType = async (code: string): Promise<void> => {
-  const response = (await axiosClient.delete(
-    `/api/seattypes/${code}`
-  )) as ApiResponseDto<unknown>;
-
-  if (!response.success) {
-    throw new Error(response.message || `Không tìm thấy loại ghế có mã ${code}`);
+  const response = await axiosClient.delete(`/api/seattypes/${code}`);
+  
+  // 204 NoContent không có response body, response sẽ là null/undefined/empty khi thành công
+  // Nếu có response body thì đó là trường hợp lỗi (404, 500, etc.)
+  if (response && typeof response === 'object' && 'success' in response) {
+    const errorResponse = response as ApiResponseDto<unknown>;
+    if (!errorResponse.success) {
+      throw new Error(errorResponse.message || `Không tìm thấy loại ghế có mã ${code}`);
+    }
   }
+  // Nếu response rỗng/null/undefined thì đó là 204 NoContent - thành công, không cần làm gì
 };
 
 // ==================== EXPORT OBJECT ====================

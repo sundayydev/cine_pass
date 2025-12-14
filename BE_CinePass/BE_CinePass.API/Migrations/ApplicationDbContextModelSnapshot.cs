@@ -412,6 +412,10 @@ namespace BE_CinePass.API.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("cinema_id");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -425,6 +429,10 @@ namespace BE_CinePass.API.Migrations
                     b.Property<int>("TotalSeats")
                         .HasColumnType("integer")
                         .HasColumnName("total_seats");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
@@ -443,6 +451,11 @@ namespace BE_CinePass.API.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
+
+                    b.Property<string>("QrOrderingCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("qr_ordering_code");
 
                     b.Property<Guid>("ScreenId")
                         .HasColumnType("uuid")

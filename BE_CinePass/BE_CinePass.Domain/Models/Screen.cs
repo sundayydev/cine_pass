@@ -26,6 +26,12 @@ public class Screen
     [Column("seat_map_layout", TypeName = "jsonb")]
     public JsonDocument? SeatMapLayout { get; set; }
 
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    
+    [Column("updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
     // Navigation properties
     [ForeignKey(nameof(CinemaId))]
     public virtual Cinema Cinema { get; set; } = null!;

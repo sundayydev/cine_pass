@@ -26,7 +26,6 @@ CREATE TABLE cinemas (
     
     -- Liên hệ & Địa điểm
     address text,
-    district text, -- Thêm quận/huyện để lọc chi tiết hơn
     city text,
     phone text,
     email text,
@@ -71,6 +70,7 @@ CREATE TABLE seats (
     seat_number int NOT NULL, -- 1, 2
     seat_code text NOT NULL, -- "A1", "B2" (Dùng để hiển thị vé)
     seat_type_code text REFERENCES seat_types(code),
+    qr_ordering_code varchar(12) NOT NULL,
     is_active boolean DEFAULT true,
     UNIQUE(screen_id, seat_code) -- Đảm bảo 1 phòng không có 2 ghế A1
 );

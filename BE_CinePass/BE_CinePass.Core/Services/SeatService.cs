@@ -123,6 +123,7 @@ public class SeatService
             SeatNumber = seat.SeatNumber,
             SeatCode = seat.SeatCode,
             SeatTypeCode = seat.SeatTypeCode,
+            QrOrderingCode = seat.QrOrderingCode,
             IsActive = seat.IsActive
         };
     }
