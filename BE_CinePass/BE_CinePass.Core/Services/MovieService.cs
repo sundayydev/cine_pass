@@ -17,16 +17,16 @@ public class MovieService
         _context = context;
     }
 
-    public async Task<MovieResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<MovieDetailResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var movie = await _movieRepository.GetByIdAsync(id, cancellationToken);
-        return movie == null ? null : MapToResponseDto(movie);
+        return movie == null ? null : MapToDetailResponseDto(movie);
     }
 
-    public async Task<MovieResponseDto?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
+    public async Task<MovieDetailResponseDto?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         var movie = await _movieRepository.GetBySlugAsync(slug, cancellationToken);
-        return movie == null ? null : MapToResponseDto(movie);
+        return movie == null ? null : MapToDetailResponseDto(movie);
     }
 
     public async Task<List<MovieResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -57,7 +57,7 @@ public class MovieService
     {
         // Generate slug if not provided
         var slug = dto.Slug ?? GenerateSlug(dto.Title);
-        
+
         // Check if slug exists
         if (await _movieRepository.SlugExistsAsync(slug, cancellationToken))
             throw new InvalidOperationException($"Slug {slug} đã tồn tại");
@@ -68,6 +68,7 @@ public class MovieService
             Slug = slug,
             DurationMinutes = dto.DurationMinutes,
             Description = dto.Description,
+            AgeLimit = dto.AgeLimit,
             PosterUrl = dto.PosterUrl,
             TrailerUrl = dto.TrailerUrl,
             ReleaseDate = dto.ReleaseDate,
@@ -162,12 +163,49 @@ public class MovieService
             Slug = movie.Slug,
             DurationMinutes = movie.DurationMinutes,
             Description = movie.Description,
+            AgeLimit = movie.AgeLimit,
             PosterUrl = movie.PosterUrl,
             TrailerUrl = movie.TrailerUrl,
             ReleaseDate = movie.ReleaseDate,
             Category = movie.Category.ToString(),
             Status = movie.Status.ToString(),
             CreatedAt = movie.CreatedAt
+        };
+    }
+
+    private static MovieDetailResponseDto MapToDetailResponseDto(Movie movie)
+    {
+        return new MovieDetailResponseDto
+        {
+            Id = movie.Id,
+            Title = movie.Title,
+            Slug = movie.Slug,
+            DurationMinutes = movie.DurationMinutes,
+            Description = movie.Description,
+            AgeLimit = movie.AgeLimit,
+            PosterUrl = movie.PosterUrl,
+            TrailerUrl = movie.TrailerUrl,
+            ReleaseDate = movie.ReleaseDate,
+            Category = movie.Category.ToString(),
+            Status = movie.Status.ToString(),
+            CreatedAt = movie.CreatedAt,
+            Actors = movie.MovieActors?.Select(ma => new MovieActorDto
+            {
+                Id = ma.Actor?.Id ?? Guid.Empty,
+                Name = ma.Actor?.Name ?? string.Empty,
+                Slug = ma.Actor?.Slug,
+                Description = ma.Actor?.Description,
+                ImageUrl = ma.Actor?.ImageUrl
+            }).ToList() ?? new List<MovieActorDto>(),
+            Reviews = movie.MovieReviews?.Select(mr => new MovieReviewDto
+            {
+                Id = mr.Id,
+                UserId = mr.UserId,
+                UserName = mr.User?.FullName ?? mr.User?.Email,
+                Rating = mr.Rating,
+                Comment = mr.Comment,
+                CreatedAt = mr.CreatedAt
+            }).ToList() ?? new List<MovieReviewDto>()
         };
     }
 }

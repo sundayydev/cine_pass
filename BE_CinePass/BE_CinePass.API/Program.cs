@@ -88,6 +88,9 @@ builder.Services.AddScoped<OrderTicketRepository>();
 builder.Services.AddScoped<OrderProductRepository>();
 builder.Services.AddScoped<ETicketRepository>();
 builder.Services.AddScoped<PaymentTransactionRepository>();
+builder.Services.AddScoped<MemberPointRepository>();
+builder.Services.AddScoped<ActorRepository>();
+builder.Services.AddScoped<MovieActorRepository>();
 
 // Services
 builder.Services.AddScoped<UserService>();
@@ -102,6 +105,9 @@ builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<ETicketService>();
 builder.Services.AddScoped<PaymentTransactionService>();
 builder.Services.AddScoped<AuthTokenService>();
+builder.Services.AddScoped<MemberPointService>();
+builder.Services.AddScoped<ActorService>();
+builder.Services.AddScoped<MovieActorService>();
 
 // Swagger / OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -155,11 +161,11 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Auto Migrate
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await db.Database.MigrateAsync();
-}
+// using (var scope = app.Services.CreateScope())
+// {
+//     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+//     await db.Database.MigrateAsync();
+// }
 
 // Swagger UI
 if (app.Environment.IsDevelopment())

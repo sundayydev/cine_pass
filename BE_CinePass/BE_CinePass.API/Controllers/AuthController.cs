@@ -1,7 +1,11 @@
 using BE_CinePass.Core.Services;
 using BE_CinePass.Shared.DTOs.Common;
 using BE_CinePass.Shared.DTOs.User;
+using BE_CinePass.Shared.DTOs.Auth;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace BE_CinePass.API.Controllers;
 
@@ -11,12 +15,14 @@ public class AuthController : ControllerBase
 {
     private readonly UserService _userService;
     private readonly AuthTokenService _authTokenService;
+    private readonly MemberPointService _memberPointService;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(UserService userService, AuthTokenService authTokenService, ILogger<AuthController> logger)
+    public AuthController(UserService userService, AuthTokenService authTokenService, MemberPointService memberPointService, ILogger<AuthController> logger)
     {
         _userService = userService;
         _authTokenService = authTokenService;
+        _memberPointService = memberPointService;
         _logger = logger;
     }
 
@@ -106,6 +112,46 @@ public class AuthController : ControllerBase
 
         await _authTokenService.RevokeRefreshTokenAsync(dto.RefreshToken, cancellationToken);
         return Ok(ApiResponseDto<bool>.SuccessResult(true, "Đăng xuất thành công"));
+    }
+
+    /// <summary>
+    /// Lấy thông tin người dùng hiện tại (Profile, Points)
+    /// </summary>
+    [HttpGet("me")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponseDto<AuthMeResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponseDto<AuthMeResponseDto>>> GetCurrentUser(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // Lấy user ID từ JWT claims
+            var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized(ApiResponseDto<AuthMeResponseDto>.ErrorResult("Token không hợp lệ"));
+
+            // Lấy thông tin user
+            var userProfile = await _userService.GetByIdAsync(userId, cancellationToken);
+            if (userProfile == null)
+                return NotFound(ApiResponseDto<AuthMeResponseDto>.ErrorResult("Không tìm thấy người dùng"));
+
+            // Lấy thông tin điểm thành viên
+            var memberPoints = await _memberPointService.GetByUserIdAsync(userId, cancellationToken);
+
+            var response = new AuthMeResponseDto
+            {
+                Profile = userProfile,
+                Points = memberPoints
+            };
+
+            return Ok(ApiResponseDto<AuthMeResponseDto>.SuccessResult(response, "Lấy thông tin người dùng thành công"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting current user info");
+            return StatusCode(500, ApiResponseDto<AuthMeResponseDto>.ErrorResult("Lỗi khi lấy thông tin người dùng"));
+        }
     }
 
     /// <summary>

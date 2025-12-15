@@ -27,6 +27,9 @@ public class Movie
     [Column("description", TypeName = "text")]
     public string? Description { get; set; }
 
+    [Column("age_limit")]
+    public int AgeLimit { get; set; }
+
     [MaxLength(500)]
     [Column("poster_url")]
     public string? PosterUrl { get; set; }
@@ -48,4 +51,6 @@ public class Movie
 
     // Navigation properties
     public virtual ICollection<Showtime> Showtimes { get; set; } = new List<Showtime>();
+    public virtual ICollection<MovieActor> MovieActors { get; set; } = new List<MovieActor>();
+    public virtual ICollection<MovieReview> MovieReviews { get; set; } = new List<MovieReview>();
 }
