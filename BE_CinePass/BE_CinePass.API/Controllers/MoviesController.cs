@@ -38,48 +38,48 @@ public class MoviesController : ControllerBase
     }
 
     /// <summary>
-    /// Lấy thông tin phim theo ID
+    /// Lấy thông tin chi tiết phim theo ID (Info, Trailer, Actors, Reviews)
     /// </summary>
     [HttpGet("{id}")]
-    [ProducesResponseType(typeof(MovieResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(MovieDetailResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<MovieResponseDto>> GetById(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<MovieDetailResponseDto>> GetById(Guid id, CancellationToken cancellationToken = default)
     {
         try
         {
             var movie = await _movieService.GetByIdAsync(id, cancellationToken);
             if (movie == null)
-                return NotFound(ApiResponseDto<MovieResponseDto>.ErrorResult($"Không tìm thấy phim có ID {id}"));
+                return NotFound(ApiResponseDto<MovieDetailResponseDto>.ErrorResult($"Không tìm thấy phim có ID {id}"));
 
-            return Ok(ApiResponseDto<MovieResponseDto>.SuccessResult(movie));
+            return Ok(ApiResponseDto<MovieDetailResponseDto>.SuccessResult(movie));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting movie by id {MovieId}", id);
-            return StatusCode(500, ApiResponseDto<MovieResponseDto>.ErrorResult("Lỗi khi lấy thông tin phim"));
+            return StatusCode(500, ApiResponseDto<MovieDetailResponseDto>.ErrorResult("Lỗi khi lấy thông tin phim"));
         }
     }
 
     /// <summary>
-    /// Lấy thông tin phim theo slug
+    /// Lấy thông tin chi tiết phim theo slug (Info, Trailer, Actors, Reviews)
     /// </summary>
     [HttpGet("slug/{slug}")]
-    [ProducesResponseType(typeof(MovieResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(MovieDetailResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<MovieResponseDto>> GetBySlug(string slug, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<MovieDetailResponseDto>> GetBySlug(string slug, CancellationToken cancellationToken = default)
     {
         try
         {
             var movie = await _movieService.GetBySlugAsync(slug, cancellationToken);
             if (movie == null)
-                return NotFound(ApiResponseDto<MovieResponseDto>.ErrorResult($"Không tìm thấy phim với slug {slug}"));
+                return NotFound(ApiResponseDto<MovieDetailResponseDto>.ErrorResult($"Không tìm thấy phim với slug {slug}"));
 
-            return Ok(ApiResponseDto<MovieResponseDto>.SuccessResult(movie));
+            return Ok(ApiResponseDto<MovieDetailResponseDto>.SuccessResult(movie));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting movie by slug {Slug}", slug);
-            return StatusCode(500, ApiResponseDto<MovieResponseDto>.ErrorResult("Lỗi khi lấy thông tin phim"));
+            return StatusCode(500, ApiResponseDto<MovieDetailResponseDto>.ErrorResult("Lỗi khi lấy thông tin phim"));
         }
     }
 

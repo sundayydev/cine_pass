@@ -81,6 +81,7 @@ CREATE TABLE movies (
     title text NOT NULL,
     slug text UNIQUE, -- Dùng cho URL SEO friendly
     duration_minutes int NOT NULL,
+    age_limit int,    -- Độ tuổi xem phim
     description text,
     poster_url text,
     trailer_url text,
@@ -168,3 +169,67 @@ CREATE TABLE payment_transactions (
     response_json jsonb, -- Lưu toàn bộ log trả về từ cổng thanh toán để debug
     created_at timestamptz DEFAULT now()
 );
+
+-- 8. Reviews Phim
+CREATE TABLE movie_reviews (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    movie_id uuid REFERENCES movies(id),
+    user_id uuid REFERENCES users(id),
+    rating int CHECK (rating BETWEEN 1 AND 5),
+    comment text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- 9. Diễn viên trong bộ phim
+CREATE TABLE movie_actors (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    movie_id uuid REFERENCES movies(id),
+    actor_id uuid REFERENCES actors(id),
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- 10. Diễn viên
+CREATE TABLE actors (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    slug text UNIQUE,
+    description text,
+    image_url text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- 11. Tích điểm thành viên
+CREATE TABLE member_points (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid REFERENCES users(id),
+    points int DEFAULT 0,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Lịch sử tích điểm
+CREATE TABLE point_history (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid REFERENCES users(id),
+    points int,
+    type text CHECK (type IN ('purchase', 'refund', 'reward')),
+    created_at timestamptz DEFAULT now()
+);
+
+-- Ưu đãi đổi điểm
+CREATE TABLE rewards (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    slug text UNIQUE,
+    description text,
+    image_url text,
+    points int NOT NULL,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+
+

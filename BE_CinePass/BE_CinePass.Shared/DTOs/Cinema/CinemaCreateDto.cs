@@ -11,7 +11,7 @@ public class CinemaCreateDto
 
     [MaxLength(255)]
     [RegularExpression("^[a-z0-9-]+$", ErrorMessage = "Slug chỉ được chứa chữ thường, số và dấu gạch ngang")]
-    public string? Slug { get; set; } 
+    public string? Slug { get; set; }
     // Note: Nếu null, Backend nên tự generate từ Name (VD: "CGV Ba Triệu" -> "cgv-ba-trieu")
 
     public string? Description { get; set; }

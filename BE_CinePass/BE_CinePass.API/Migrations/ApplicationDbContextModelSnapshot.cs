@@ -24,6 +24,43 @@ namespace BE_CinePass.API.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("BE_CinePass.Domain.Models.Actor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Slug")
+                        .HasColumnType("text")
+                        .HasColumnName("slug");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("actors");
+                });
+
             modelBuilder.Entity("BE_CinePass.Domain.Models.Cinema", b =>
                 {
                     b.Property<Guid>("Id")
@@ -148,12 +185,46 @@ namespace BE_CinePass.API.Migrations
                     b.ToTable("e_tickets");
                 });
 
+            modelBuilder.Entity("BE_CinePass.Domain.Models.MemberPoint", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("Points")
+                        .HasColumnType("integer")
+                        .HasColumnName("points");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("member_points");
+                });
+
             modelBuilder.Entity("BE_CinePass.Domain.Models.Movie", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<int>("AgeLimit")
+                        .HasColumnType("integer")
+                        .HasColumnName("age_limit");
 
                     b.Property<string>("Category")
                         .IsRequired()
@@ -210,6 +281,78 @@ namespace BE_CinePass.API.Migrations
                         .IsUnique();
 
                     b.ToTable("movies");
+                });
+
+            modelBuilder.Entity("BE_CinePass.Domain.Models.MovieActor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("MovieId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movie_id");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorId");
+
+                    b.HasIndex("MovieId");
+
+                    b.ToTable("movie_actors");
+                });
+
+            modelBuilder.Entity("BE_CinePass.Domain.Models.MovieReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("text")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("MovieId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movie_id");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("integer")
+                        .HasColumnName("rating");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MovieId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("movie_reviews");
                 });
 
             modelBuilder.Entity("BE_CinePass.Domain.Models.Order", b =>
@@ -360,6 +503,36 @@ namespace BE_CinePass.API.Migrations
                     b.ToTable("payment_transactions");
                 });
 
+            modelBuilder.Entity("BE_CinePass.Domain.Models.PointHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int?>("Points")
+                        .HasColumnType("integer")
+                        .HasColumnName("points");
+
+                    b.Property<string>("Type")
+                        .HasColumnType("text")
+                        .HasColumnName("type");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("point_history");
+                });
+
             modelBuilder.Entity("BE_CinePass.Domain.Models.Product", b =>
                 {
                     b.Property<Guid>("Id")
@@ -399,6 +572,47 @@ namespace BE_CinePass.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("products");
+                });
+
+            modelBuilder.Entity("BE_CinePass.Domain.Models.Reward", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Points")
+                        .HasColumnType("integer")
+                        .HasColumnName("points");
+
+                    b.Property<string>("Slug")
+                        .HasColumnType("text")
+                        .HasColumnName("slug");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("rewards");
                 });
 
             modelBuilder.Entity("BE_CinePass.Domain.Models.Screen", b =>
@@ -616,6 +830,45 @@ namespace BE_CinePass.API.Migrations
                     b.Navigation("OrderTicket");
                 });
 
+            modelBuilder.Entity("BE_CinePass.Domain.Models.MemberPoint", b =>
+                {
+                    b.HasOne("BE_CinePass.Domain.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("BE_CinePass.Domain.Models.MovieActor", b =>
+                {
+                    b.HasOne("BE_CinePass.Domain.Models.Actor", "Actor")
+                        .WithMany("MovieActors")
+                        .HasForeignKey("ActorId");
+
+                    b.HasOne("BE_CinePass.Domain.Models.Movie", "Movie")
+                        .WithMany("MovieActors")
+                        .HasForeignKey("MovieId");
+
+                    b.Navigation("Actor");
+
+                    b.Navigation("Movie");
+                });
+
+            modelBuilder.Entity("BE_CinePass.Domain.Models.MovieReview", b =>
+                {
+                    b.HasOne("BE_CinePass.Domain.Models.Movie", "Movie")
+                        .WithMany("MovieReviews")
+                        .HasForeignKey("MovieId");
+
+                    b.HasOne("BE_CinePass.Domain.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("Movie");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("BE_CinePass.Domain.Models.Order", b =>
                 {
                     b.HasOne("BE_CinePass.Domain.Models.User", "User")
@@ -680,6 +933,15 @@ namespace BE_CinePass.API.Migrations
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("BE_CinePass.Domain.Models.PointHistory", b =>
+                {
+                    b.HasOne("BE_CinePass.Domain.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("BE_CinePass.Domain.Models.Screen", b =>
                 {
                     b.HasOne("BE_CinePass.Domain.Models.Cinema", "Cinema")
@@ -728,6 +990,11 @@ namespace BE_CinePass.API.Migrations
                     b.Navigation("Screen");
                 });
 
+            modelBuilder.Entity("BE_CinePass.Domain.Models.Actor", b =>
+                {
+                    b.Navigation("MovieActors");
+                });
+
             modelBuilder.Entity("BE_CinePass.Domain.Models.Cinema", b =>
                 {
                     b.Navigation("Screens");
@@ -735,6 +1002,10 @@ namespace BE_CinePass.API.Migrations
 
             modelBuilder.Entity("BE_CinePass.Domain.Models.Movie", b =>
                 {
+                    b.Navigation("MovieActors");
+
+                    b.Navigation("MovieReviews");
+
                     b.Navigation("Showtimes");
                 });
 

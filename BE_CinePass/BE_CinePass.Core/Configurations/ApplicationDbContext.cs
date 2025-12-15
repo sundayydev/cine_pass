@@ -26,6 +26,13 @@ public class ApplicationDbContext : DbContext
     public DbSet<OrderProduct> OrderProducts { get; set; }
     public DbSet<ETicket> ETickets { get; set; }
     public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
+    public DbSet<MemberPoint> MemberPoints { get; set; }
+    public DbSet<Actor> Actors { get; set; }
+    public DbSet<MovieActor> MovieActors { get; set; }
+    public DbSet<MovieReview> MovieReviews { get; set; }
+    public DbSet<Reward> Rewards { get; set; }
+    public DbSet<PointHistory> PointHistories { get; set; }
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

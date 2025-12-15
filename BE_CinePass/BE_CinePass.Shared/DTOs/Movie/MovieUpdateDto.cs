@@ -16,6 +16,9 @@ public class MovieUpdateDto
 
     public string? Description { get; set; }
 
+    [Range(0, 18)]
+    public int? AgeLimit { get; set; }
+
     [MaxLength(500)]
     [Url]
     public string? PosterUrl { get; set; }
