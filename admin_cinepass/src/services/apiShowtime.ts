@@ -13,167 +13,104 @@ export interface ApiResponseDto<T> {
 }
 
 /**
- * DTO cho tạo lịch chiếu mới
+ * Showtime object from the backend
  */
-export interface ShowtimeCreateDto {
+export interface Showtime {
+  id: string; // Guid is a string in TS
   movieId: string;
   screenId: string;
-  startTime: string; // ISO date string
-  price: number;
+  startTime: string; // DateTime is a string (ISO 8601)
+  endTime: string;   // DateTime is a string (ISO 8601)
+  basePrice: number; // decimal is a number
+  isActive: boolean;
+  // Optional navigation properties that might be included
+  movie?: { id: string; title: string };
+  screen?: { id: string; name: string; cinemaId: string; };
 }
 
 /**
- * DTO cho cập nhật lịch chiếu
+ * Payload for creating a new showtime
  */
-export interface ShowtimeUpdateDto {
-  movieId?: string;
-  screenId?: string;
-  startTime?: string; // ISO date string
-  price?: number;
+export interface ShowtimeCreatePayload {
+  movieId: string;
+  screenId: string;
+  startTime: string; // ISO 8601 string
+  basePrice: number;
 }
 
 /**
- * Response DTO cho lịch chiếu
+ * Payload for updating an existing showtime
  */
-export interface ShowtimeResponseDto {
-  id: string;
-  movieId: string;
-  screenId: string;
-  startTime: string;
-  price: number;
-  createdAt: string;
-  updatedAt: string;
-}
+export type ShowtimeUpdatePayload = Partial<ShowtimeCreatePayload & { isActive: boolean }>;
+
 
 // ==================== API FUNCTIONS ====================
 
 /**
- * Lấy danh sách lịch chiếu theo phim
- * GET /api/showtimes/movie/{movieId}
+ * Fetch all showtimes
+ * GET /api/showtimes
  */
-export const getByMovieId = async (movieId: string): Promise<ShowtimeResponseDto[]> => {
-  const response = (await axiosClient.get(
-    `/api/showtimes/movie/${movieId}`
-  )) as ApiResponseDto<ShowtimeResponseDto[]>;
-
+export const getAllShowtimes = async (): Promise<Showtime[]> => {
+  const response = await axiosClient.get('/api/showtimes') as ApiResponseDto<Showtime[]>;
   if (!response.success || !response.data) {
-    throw new Error(response.message || 'Lỗi khi lấy danh sách lịch chiếu');
+    throw new Error(response.message || 'Failed to fetch showtimes');
   }
-
   return response.data;
 };
 
 /**
- * Lấy danh sách lịch chiếu theo ngày
- * GET /api/showtimes/date/{date}
- */
-export const getByDate = async (date: string): Promise<ShowtimeResponseDto[]> => {
-  const response = (await axiosClient.get(
-    `/api/showtimes/date/${date}`
-  )) as ApiResponseDto<ShowtimeResponseDto[]>;
-
-  if (!response.success || !response.data) {
-    throw new Error(response.message || 'Lỗi khi lấy danh sách lịch chiếu');
-  }
-
-  return response.data;
-};
-
-/**
- * Lấy danh sách lịch chiếu theo phim và ngày
- * GET /api/showtimes/movie/{movieId}/date/{date}
- */
-export const getByMovieAndDate = async (movieId: string, date: string): Promise<ShowtimeResponseDto[]> => {
-  const response = (await axiosClient.get(
-    `/api/showtimes/movie/${movieId}/date/${date}`
-  )) as ApiResponseDto<ShowtimeResponseDto[]>;
-
-  if (!response.success || !response.data) {
-    throw new Error(response.message || 'Lỗi khi lấy danh sách lịch chiếu');
-  }
-
-  return response.data;
-};
-
-/**
- * Lấy thông tin lịch chiếu theo ID
+ * Fetch a single showtime by its ID
  * GET /api/showtimes/{id}
  */
-export const getById = async (id: string): Promise<ShowtimeResponseDto> => {
-  const response = (await axiosClient.get(
-    `/api/showtimes/${id}`
-  )) as ApiResponseDto<ShowtimeResponseDto>;
-
+export const getShowtimeById = async (id: string): Promise<Showtime> => {
+  const response = await axiosClient.get(`/api/showtimes/${id}`) as ApiResponseDto<Showtime>;
   if (!response.success || !response.data) {
-    throw new Error(response.message || `Không tìm thấy lịch chiếu có ID ${id}`);
+    throw new Error(response.message || `Showtime with ID ${id} not found`);
   }
-
   return response.data;
 };
 
 /**
- * Tạo lịch chiếu mới
+ * Create a new showtime
  * POST /api/showtimes
  */
-export const create = async (dto: ShowtimeCreateDto): Promise<ShowtimeResponseDto> => {
-  const response = (await axiosClient.post(
-    '/api/showtimes',
-    dto
-  )) as ApiResponseDto<ShowtimeResponseDto>;
-
+export const createShowtime = async (payload: ShowtimeCreatePayload): Promise<Showtime> => {
+  const response = await axiosClient.post('/api/showtimes', payload) as ApiResponseDto<Showtime>;
   if (!response.success || !response.data) {
-    throw new Error(response.message || 'Lỗi khi tạo lịch chiếu');
+    throw new Error(response.message || 'Failed to create showtime');
   }
-
   return response.data;
 };
 
 /**
- * Cập nhật thông tin lịch chiếu
+ * Update an existing showtime
  * PUT /api/showtimes/{id}
  */
-export const update = async (id: string, dto: ShowtimeUpdateDto): Promise<ShowtimeResponseDto> => {
-  const response = (await axiosClient.put(
-    `/api/showtimes/${id}`,
-    dto
-  )) as ApiResponseDto<ShowtimeResponseDto>;
-
+export const updateShowtime = async (id: string, payload: ShowtimeUpdatePayload): Promise<Showtime> => {
+  const response = await axiosClient.put(`/api/showtimes/${id}`, payload) as ApiResponseDto<Showtime>;
   if (!response.success || !response.data) {
-    throw new Error(response.message || `Không tìm thấy lịch chiếu có ID ${id}`);
+    throw new Error(response.message || `Failed to update showtime with ID ${id}`);
   }
-
   return response.data;
 };
 
 /**
- * Xóa lịch chiếu
+ * Delete a showtime
  * DELETE /api/showtimes/{id}
  */
 export const deleteShowtime = async (id: string): Promise<void> => {
-  const response = (await axiosClient.delete(
-    `/api/showtimes/${id}`
-  )) as ApiResponseDto<unknown>;
-
-  if (response && typeof response === 'object' && 'success' in response) {
-    const errorResponse = response as ApiResponseDto<unknown>;
-    if (!errorResponse.success) {
-      throw new Error(errorResponse.message || `Không tìm thấy lịch chiếu có ID ${id}`);
+  const response = await axiosClient.delete(`/api/showtimes/${id}`) as ApiResponseDto<unknown>;
+    if (!response.success) {
+      throw new Error(response.message || `Failed to delete showtime with ID ${id}`);
     }
-  }
 };
 
 // ==================== EXPORT OBJECT ====================
 
-/**
- * Object chứa tất cả các API functions cho Showtime
- */
 export const showtimeApi = {
-  getByMovieId,
-  getByDate,
-  getByMovieAndDate,
-  getById,
-  create,
-  update,
+  getAll: getAllShowtimes,
+  getById: getShowtimeById,
+  create: createShowtime,
+  update: updateShowtime,
   delete: deleteShowtime,
 };
-

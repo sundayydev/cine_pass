@@ -27,6 +27,9 @@ import SeatTypesListPage from '@/features/seat-types';
 import CreateSeatTypePage from '@/features/seat-types/CreateSeatType';
 import EditSeatTypePage from '@/features/seat-types/EditSeatType';
 
+// Showtime Pages
+import { ShowtimeList, CreateShowtime, EditShowtime } from '@/features/showtimes';
+
 // --- Lazy Load Pages ---
 // Auth
 const LoginPage = lazy(() => import('@/features/auth/Login'));
@@ -77,6 +80,11 @@ export const router = createBrowserRouter([
       { path: PATHS.SEAT_TYPES, element: Loadable(SeatTypesListPage) },
       { path: PATHS.SEAT_TYPE_CREATE, element: Loadable(CreateSeatTypePage) },
       { path: PATHS.SEAT_TYPE_EDIT, element: Loadable(EditSeatTypePage) },
+
+      // Showtime Routes
+      { path: PATHS.SHOWTIMES, element: Loadable(ShowtimeList) },
+      { path: PATHS.SHOWTIME_CREATE, element: Loadable(CreateShowtime) },
+      { path: PATHS.SHOWTIME_EDIT, element: Loadable(EditShowtime) },
     ]
   },
 

@@ -15,7 +15,21 @@ public class MovieRepository : BaseRepository<Movie>, IMovieRepository
     public async Task<Movie?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(m => m.MovieActors)
+                .ThenInclude(ma => ma.Actor)
+            .Include(m => m.MovieReviews)
+                .ThenInclude(mr => mr.User)
             .FirstOrDefaultAsync(m => m.Slug == slug, cancellationToken);
+    }
+
+    public new async Task<Movie?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(m => m.MovieActors)
+                .ThenInclude(ma => ma.Actor)
+            .Include(m => m.MovieReviews)
+                .ThenInclude(mr => mr.User)
+            .FirstOrDefaultAsync(m => m.Id == id, cancellationToken);
     }
 
     public async Task<IEnumerable<Movie>> GetByStatusAsync(MovieStatus status, CancellationToken cancellationToken = default)

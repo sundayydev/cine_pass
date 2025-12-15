@@ -1,4 +1,5 @@
 import axiosClient from '@/lib/axiosClient';
+import type { Cinema } from '@/types/showtimeType';
 
 // ==================== TYPES ====================
 
@@ -13,197 +14,93 @@ export interface ApiResponseDto<T> {
 }
 
 /**
- * DTO cho tạo rạp chiếu phim mới
+ * DTO for creating a new cinema
  */
 export interface CinemaCreateDto {
   name: string;
-  slug?: string;
-  description?: string;
   address?: string;
-  city?: string;
   phone?: string;
   email?: string;
-  website?: string;
-  latitude?: number;
-  longitude?: number;
-  bannerUrl?: string;
-  totalScreens?: number;
-  facilities?: string[];
-  isActive?: boolean;
 }
 
 /**
- * DTO cho cập nhật rạp chiếu phim
+ * DTO for updating a cinema
  */
 export interface CinemaUpdateDto {
   name?: string;
-  slug?: string;
-  description?: string;
   address?: string;
-  city?: string;
   phone?: string;
   email?: string;
-  website?: string;
-  latitude?: number;
-  longitude?: number;
-  bannerUrl?: string;
-  totalScreens?: number;
-  facilities?: string[];
   isActive?: boolean;
-}
-
-/**
- * Response DTO cho rạp chiếu phim
- */
-export interface CinemaResponseDto {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  address?: string;
-  city?: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  latitude?: number;
-  longitude?: number;
-  bannerUrl?: string;
-  totalScreens: number;
-  facilities?: string[];
-  isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 // ==================== API FUNCTIONS ====================
 
 /**
- * Lấy danh sách tất cả rạp chiếu phim
+ * Fetch all cinemas
  * GET /api/cinemas
  */
-export const getAll = async (): Promise<CinemaResponseDto[]> => {
-  const response = (await axiosClient.get(
-    '/api/cinemas'
-  )) as ApiResponseDto<CinemaResponseDto[]>;
-
+export const getAllCinemas = async (): Promise<Cinema[]> => {
+  const response = await axiosClient.get('/api/cinemas') as ApiResponseDto<Cinema[]>;
   if (!response.success || !response.data) {
-    throw new Error(response.message || 'Lỗi khi lấy danh sách rạp chiếu phim');
+    throw new Error(response.message || 'Failed to fetch cinemas');
   }
-
   return response.data;
 };
 
 /**
- * Lấy danh sách rạp chiếu phim đang hoạt động
- * GET /api/cinemas/active
- */
-export const getActive = async (): Promise<CinemaResponseDto[]> => {
-  const response = (await axiosClient.get(
-    '/api/cinemas/active'
-  )) as ApiResponseDto<CinemaResponseDto[]>;
-
-  if (!response.success || !response.data) {
-    throw new Error(response.message || 'Lỗi khi lấy danh sách rạp chiếu phim');
-  }
-
-  return response.data;
-};
-
-/**
- * Lấy danh sách rạp chiếu phim theo thành phố
- * GET /api/cinemas/city/{city}
- */
-export const getByCity = async (city: string): Promise<CinemaResponseDto[]> => {
-  const response = (await axiosClient.get(
-    `/api/cinemas/city/${city}`
-  )) as ApiResponseDto<CinemaResponseDto[]>;
-
-  if (!response.success || !response.data) {
-    throw new Error(response.message || 'Lỗi khi lấy danh sách rạp chiếu phim');
-  }
-
-  return response.data;
-};
-
-/**
- * Lấy thông tin rạp chiếu phim theo ID
+ * Fetch a single cinema by its ID
  * GET /api/cinemas/{id}
  */
-export const getById = async (id: string): Promise<CinemaResponseDto> => {
-  const response = (await axiosClient.get(
-    `/api/cinemas/${id}`
-  )) as ApiResponseDto<CinemaResponseDto>;
-
+export const getCinemaById = async (id: string): Promise<Cinema> => {
+  const response = await axiosClient.get(`/api/cinemas/${id}`) as ApiResponseDto<Cinema>;
   if (!response.success || !response.data) {
-    throw new Error(response.message || `Không tìm thấy rạp chiếu phim có ID ${id}`);
+    throw new Error(response.message || `Cinema with ID ${id} not found`);
   }
-
   return response.data;
 };
 
 /**
- * Tạo rạp chiếu phim mới
+ * Create a new cinema
  * POST /api/cinemas
  */
-export const create = async (dto: CinemaCreateDto): Promise<CinemaResponseDto> => {
-  const response = (await axiosClient.post(
-    '/api/cinemas',
-    dto
-  )) as ApiResponseDto<CinemaResponseDto>;
-
+export const createCinema = async (payload: CinemaCreateDto): Promise<Cinema> => {
+  const response = await axiosClient.post('/api/cinemas', payload) as ApiResponseDto<Cinema>;
   if (!response.success || !response.data) {
-    throw new Error(response.message || 'Lỗi khi tạo rạp chiếu phim');
+    throw new Error(response.message || 'Failed to create cinema');
   }
-
   return response.data;
 };
 
 /**
- * Cập nhật thông tin rạp chiếu phim
+ * Update an existing cinema
  * PUT /api/cinemas/{id}
  */
-export const update = async (id: string, dto: CinemaUpdateDto): Promise<CinemaResponseDto> => {
-  const response = (await axiosClient.put(
-    `/api/cinemas/${id}`,
-    dto
-  )) as ApiResponseDto<CinemaResponseDto>;
-
+export const updateCinema = async (id: string, payload: CinemaUpdateDto): Promise<Cinema> => {
+  const response = await axiosClient.put(`/api/cinemas/${id}`, payload) as ApiResponseDto<Cinema>;
   if (!response.success || !response.data) {
-    throw new Error(response.message || `Không tìm thấy rạp chiếu phim có ID ${id}`);
+    throw new Error(response.message || `Failed to update cinema with ID ${id}`);
   }
-
   return response.data;
 };
 
 /**
- * Xóa rạp chiếu phim
+ * Delete a cinema
  * DELETE /api/cinemas/{id}
  */
 export const deleteCinema = async (id: string): Promise<void> => {
-  const response = (await axiosClient.delete(
-    `/api/cinemas/${id}`
-  )) as ApiResponseDto<unknown>;
-
-  if (response && typeof response === 'object' && 'success' in response) {
-    const errorResponse = response as ApiResponseDto<unknown>;
-    if (!errorResponse.success) {
-      throw new Error(errorResponse.message || `Không tìm thấy rạp chiếu phim có ID ${id}`);
-    }
+  const response = await axiosClient.delete(`/api/cinemas/${id}`) as ApiResponseDto<unknown>;
+  if (!response.success) {
+    throw new Error(response.message || `Failed to delete cinema with ID ${id}`);
   }
 };
 
 // ==================== EXPORT OBJECT ====================
 
-/**
- * Object chứa tất cả các API functions cho Cinema
- */
 export const cinemaApi = {
-  getAll,
-  getActive,
-  getByCity,
-  getById,
-  create,
-  update,
+  getAll: getAllCinemas,
+  getById: getCinemaById,
+  create: createCinema,
+  update: updateCinema,
   delete: deleteCinema,
 };
-
