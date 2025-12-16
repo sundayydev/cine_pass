@@ -115,6 +115,7 @@ public class AuthController : ControllerBase
         return Ok(ApiResponseDto<bool>.SuccessResult(true, "Đăng xuất thành công"));
     }
 
+
     /// <summary>
     /// Lấy thông tin người dùng hiện tại (Profile, Points)
     /// </summary>
@@ -127,18 +128,58 @@ public class AuthController : ControllerBase
     {
         try
         {
+            _logger.LogInformation("GetCurrentUser called");
+
+            // Debug: Log authentication status
+            _logger.LogInformation("IsAuthenticated: {IsAuthenticated}", User?.Identity?.IsAuthenticated ?? false);
+
+            // Debug: Log all claims
+            if (User?.Claims != null)
+            {
+                foreach (var claim in User.Claims)
+                {
+                    _logger.LogInformation("Claim - Type: {Type}, Value: {Value}", claim.Type, claim.Value);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("No claims found in User object");
+            }
+
             // Lấy user ID từ JWT claims sử dụng extension method
             var userId = User.GetUserId();
+            _logger.LogInformation("UserId extracted: {UserId}", userId);
+
             if (!userId.HasValue)
+            {
+                _logger.LogWarning("UserId is null, token không hợp lệ");
                 return Unauthorized(ApiResponseDto<AuthMeResponseDto>.ErrorResult("Token không hợp lệ"));
+            }
 
             // Lấy thông tin user
+            _logger.LogInformation("Fetching user profile for userId: {UserId}", userId.Value);
             var userProfile = await _userService.GetByIdAsync(userId.Value, cancellationToken);
+
             if (userProfile == null)
+            {
+                _logger.LogWarning("User not found for userId: {UserId}", userId.Value);
                 return NotFound(ApiResponseDto<AuthMeResponseDto>.ErrorResult("Không tìm thấy người dùng"));
+            }
+
+            _logger.LogInformation("User profile found: {Email}, Role: {Role}", userProfile.Email, userProfile.Role);
 
             // Lấy thông tin điểm thành viên
+            _logger.LogInformation("Fetching member points for userId: {UserId}", userId.Value);
             var memberPoints = await _memberPointService.GetByUserIdAsync(userId.Value, cancellationToken);
+
+            if (memberPoints != null)
+            {
+                _logger.LogInformation("Member points found: {Points}", memberPoints.Points);
+            }
+            else
+            {
+                _logger.LogInformation("No member points found for userId: {UserId}", userId.Value);
+            }
 
             var response = new AuthMeResponseDto
             {
@@ -146,6 +187,7 @@ public class AuthController : ControllerBase
                 Points = memberPoints
             };
 
+            _logger.LogInformation("GetCurrentUser completed successfully for userId: {UserId}", userId.Value);
             return Ok(ApiResponseDto<AuthMeResponseDto>.SuccessResult(response, "Lấy thông tin người dùng thành công"));
         }
         catch (Exception ex)
@@ -153,6 +195,36 @@ public class AuthController : ControllerBase
             _logger.LogError(ex, "Error getting current user info");
             return StatusCode(500, ApiResponseDto<AuthMeResponseDto>.ErrorResult("Lỗi khi lấy thông tin người dùng"));
         }
+    }
+
+    /// <summary>
+    /// Test endpoint để verify JWT authentication và claims
+    /// </summary>
+    [HttpGet("test-auth")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponseDto<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public IActionResult TestAuth()
+    {
+        var claims = User.Claims.Select(c => new
+        {
+            Type = c.Type,
+            Value = c.Value
+        }).ToList();
+
+        var result = new
+        {
+            IsAuthenticated = User?.Identity?.IsAuthenticated ?? false,
+            AuthenticationType = User?.Identity?.AuthenticationType,
+            Name = User?.Identity?.Name,
+            UserId = User.GetUserId(),
+            Email = User.GetUserEmail(),
+            Role = User.GetUserRole()?.ToString(),
+            FullName = User.GetUserFullName(),
+            Claims = claims
+        };
+
+        return Ok(ApiResponseDto<object>.SuccessResult(result, "Authentication test passed"));
     }
 
     /// <summary>

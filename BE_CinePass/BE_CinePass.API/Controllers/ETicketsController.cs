@@ -164,7 +164,7 @@ public class ETicketsController : ControllerBase
             if (!result)
                 return NotFound(ApiResponseDto<object>.ErrorResult($"Không tìm thấy vé điện tử với mã {ticketCode}"));
 
-            return Ok(ApiResponseDto<object>.SuccessResult(null, "Check-in thành công"));
+            return Ok(ApiResponseDto<object>.SuccessResult("Check-in thành công"));
         }
         catch (InvalidOperationException ex)
         {
