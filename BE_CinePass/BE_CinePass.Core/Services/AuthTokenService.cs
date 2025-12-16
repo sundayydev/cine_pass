@@ -34,13 +34,24 @@ public class AuthTokenService
         var accessExpiresAt = now.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes);
         var refreshExpiresAt = now.AddDays(_jwtSettings.RefreshTokenExpirationDays);
 
+        // Create claims with role as string name (not enum value)
+        var roleName = user.Role.ToString(); // "Customer", "Staff", or "Admin"
+
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email),
-            new(ClaimTypes.Role, user.Role.ToString()),
+            new(ClaimTypes.Role, roleName), // Standard role claim for [Authorize(Roles = "...")]
+            new("role", roleName), // Custom role claim for easier access
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
+        // Add name claim if available
+        if (!string.IsNullOrEmpty(user.FullName))
+        {
+            claims.Add(new Claim(ClaimTypes.Name, user.FullName));
+            claims.Add(new Claim(JwtRegisteredClaimNames.Name, user.FullName));
+        }
 
         var accessToken = BuildJwtToken(claims, accessExpiresAt);
         var refreshToken = GenerateRefreshToken();

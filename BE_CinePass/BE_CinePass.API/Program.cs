@@ -108,6 +108,8 @@ builder.Services.AddScoped<AuthTokenService>();
 builder.Services.AddScoped<MemberPointService>();
 builder.Services.AddScoped<ActorService>();
 builder.Services.AddScoped<MovieActorService>();
+builder.Services.AddScoped<SeatHoldService>();
+builder.Services.AddScoped<CloudinaryService>();
 
 // Swagger / OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -152,11 +154,15 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CinePassCors", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("http://localhost:3000", "http://localhost:5173") // Add your frontend URLs
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials(); // Required for SignalR
     });
 });
+
+// SignalR
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -184,5 +190,6 @@ app.UseCors("CinePassCors");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<BE_CinePass.API.Hubs.SeatReservationHub>("/hubs/seat-reservation");
 
 app.Run();

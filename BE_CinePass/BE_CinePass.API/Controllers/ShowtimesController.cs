@@ -99,6 +99,29 @@ public class ShowtimesController : ControllerBase
     }
 
     /// <summary>
+    /// Lấy sơ đồ ghế và trạng thái ghế cho lịch chiếu
+    /// </summary>
+    [HttpGet("{id}/seats")]
+    [ProducesResponseType(typeof(ShowtimeSeatsResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ShowtimeSeatsResponseDto>> GetSeats(Guid id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _showtimeService.GetSeatsWithStatusAsync(id, cancellationToken);
+            if (result == null)
+                return NotFound(ApiResponseDto<ShowtimeSeatsResponseDto>.ErrorResult($"Không tìm thấy lịch chiếu có ID {id}"));
+
+            return Ok(ApiResponseDto<ShowtimeSeatsResponseDto>.SuccessResult(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting seats for showtime {ShowtimeId}", id);
+            return StatusCode(500, ApiResponseDto<ShowtimeSeatsResponseDto>.ErrorResult("Lỗi khi lấy thông tin ghế"));
+        }
+    }
+
+    /// <summary>
     /// Tạo lịch chiếu mới
     /// </summary>
     [HttpPost]
@@ -153,6 +176,33 @@ public class ShowtimesController : ControllerBase
         {
             _logger.LogError(ex, "Error updating showtime {ShowtimeId}", id);
             return StatusCode(500, ApiResponseDto<ShowtimeResponseDto>.ErrorResult("Lỗi khi cập nhật lịch chiếu"));
+        }
+    }
+
+    /// <summary>
+    /// Cập nhật giá vé cơ bản
+    /// </summary>
+    [HttpPut("admin/showtimes/{id}/price")]
+    [ProducesResponseType(typeof(ShowtimeResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ShowtimeResponseDto>> UpdatePrice(Guid id, [FromBody] ShowtimeUpdatePriceDto dto, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponseDto<ShowtimeResponseDto>.ErrorResult("Dữ liệu không hợp lệ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()));
+
+            var showtime = await _showtimeService.UpdatePriceAsync(id, dto, cancellationToken);
+            if (showtime == null)
+                return NotFound(ApiResponseDto<ShowtimeResponseDto>.ErrorResult($"Không tìm thấy lịch chiếu có ID {id}"));
+
+            return Ok(ApiResponseDto<ShowtimeResponseDto>.SuccessResult(showtime, "Cập nhật giá vé thành công"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating showtime price {ShowtimeId}", id);
+            return StatusCode(500, ApiResponseDto<ShowtimeResponseDto>.ErrorResult("Lỗi khi cập nhật giá vé"));
         }
     }
 

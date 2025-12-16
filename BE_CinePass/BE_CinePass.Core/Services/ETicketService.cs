@@ -96,6 +96,64 @@ public class ETicketService
         return true;
     }
 
+    public async Task<TicketVerificationResultDto> VerifyAndUseTicketAsync(string qrData, CancellationToken cancellationToken = default)
+    {
+        // Find ticket by QR data
+        var eTicket = await _eTicketRepository.GetByQrDataAsync(qrData, cancellationToken);
+
+        // Ticket not found
+        if (eTicket == null)
+        {
+            return new TicketVerificationResultDto
+            {
+                IsValid = false,
+                Status = "Invalid",
+                Message = "Vé không hợp lệ. Không tìm thấy thông tin vé trong hệ thống.",
+                TicketDetail = null
+            };
+        }
+
+        // Ticket already used
+        if (eTicket.IsUsed)
+        {
+            return new TicketVerificationResultDto
+            {
+                IsValid = false,
+                Status = "AlreadyUsed",
+                Message = $"Vé đã được sử dụng lúc {eTicket.UsedAt:dd/MM/yyyy HH:mm:ss}.",
+                TicketDetail = MapToDetailDto(eTicket)
+            };
+        }
+
+        // Verify order is confirmed
+        if (eTicket.OrderTicket?.Order?.Status != Domain.Common.OrderStatus.Confirmed)
+        {
+            return new TicketVerificationResultDto
+            {
+                IsValid = false,
+                Status = "Invalid",
+                Message = "Đơn hàng chưa được xác nhận thanh toán.",
+                TicketDetail = null
+            };
+        }
+
+        // Mark ticket as used
+        eTicket.IsUsed = true;
+        eTicket.UsedAt = DateTime.UtcNow;
+
+        _eTicketRepository.Update(eTicket);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Return success with ticket details
+        return new TicketVerificationResultDto
+        {
+            IsValid = true,
+            Status = "Valid",
+            Message = "Vé hợp lệ. Check-in thành công!",
+            TicketDetail = MapToDetailDto(eTicket)
+        };
+    }
+
     private static string GenerateTicketCode()
     {
         // Generate 8-character alphanumeric code
