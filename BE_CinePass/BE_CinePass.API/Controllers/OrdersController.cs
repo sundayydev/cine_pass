@@ -172,7 +172,7 @@ public class OrdersController : ControllerBase
             if (!result)
                 return NotFound(ApiResponseDto<object>.ErrorResult($"Không tìm thấy đơn hàng có ID {id}"));
 
-            return Ok(ApiResponseDto<object>.SuccessResult(null, "Xác nhận đơn hàng thành công"));
+            return Ok(ApiResponseDto<object>.SuccessResult("Xác nhận đơn hàng thành công"));
         }
         catch (InvalidOperationException ex)
         {
@@ -200,7 +200,7 @@ public class OrdersController : ControllerBase
             if (!result)
                 return NotFound(ApiResponseDto<object>.ErrorResult($"Không tìm thấy đơn hàng có ID {id}"));
 
-            return Ok(ApiResponseDto<object>.SuccessResult(null, "Hủy đơn hàng thành công"));
+            return Ok(ApiResponseDto<object>.SuccessResult("Hủy đơn hàng thành công"));
         }
         catch (InvalidOperationException ex)
         {
