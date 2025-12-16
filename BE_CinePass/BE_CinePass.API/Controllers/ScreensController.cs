@@ -140,5 +140,33 @@ public class ScreensController : ControllerBase
             return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi khi xóa màn hình"));
         }
     }
+
+    /// <summary>
+    /// Sinh ghế tự động cho màn hình
+    /// </summary>
+    [HttpPost("admin/screens/{id}/generate-seats")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<object>> GenerateSeats(Guid id, [FromBody] GenerateSeatsDto dto, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponseDto<object>.ErrorResult("Dữ liệu không hợp lệ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()));
+
+            var result = await _screenService.GenerateSeatsAsync(id, dto, cancellationToken);
+            return Ok(ApiResponseDto<object>.SuccessResult(result));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponseDto<object>.ErrorResult(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating seats for screen {ScreenId}", id);
+            return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi khi sinh ghế tự động"));
+        }
+    }
 }
 

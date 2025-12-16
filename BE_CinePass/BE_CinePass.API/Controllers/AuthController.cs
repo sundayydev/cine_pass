@@ -2,6 +2,7 @@ using BE_CinePass.Core.Services;
 using BE_CinePass.Shared.DTOs.Common;
 using BE_CinePass.Shared.DTOs.User;
 using BE_CinePass.Shared.DTOs.Auth;
+using BE_CinePass.Shared.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -126,18 +127,18 @@ public class AuthController : ControllerBase
     {
         try
         {
-            // Lấy user ID từ JWT claims
-            var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            // Lấy user ID từ JWT claims sử dụng extension method
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
                 return Unauthorized(ApiResponseDto<AuthMeResponseDto>.ErrorResult("Token không hợp lệ"));
 
             // Lấy thông tin user
-            var userProfile = await _userService.GetByIdAsync(userId, cancellationToken);
+            var userProfile = await _userService.GetByIdAsync(userId.Value, cancellationToken);
             if (userProfile == null)
                 return NotFound(ApiResponseDto<AuthMeResponseDto>.ErrorResult("Không tìm thấy người dùng"));
 
             // Lấy thông tin điểm thành viên
-            var memberPoints = await _memberPointService.GetByUserIdAsync(userId, cancellationToken);
+            var memberPoints = await _memberPointService.GetByUserIdAsync(userId.Value, cancellationToken);
 
             var response = new AuthMeResponseDto
             {

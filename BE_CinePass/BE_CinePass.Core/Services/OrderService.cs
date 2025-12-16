@@ -18,6 +18,9 @@ public class OrderService
     private readonly SeatRepository _seatRepository;
     private readonly ProductRepository _productRepository;
     private readonly SeatTypeRepository _seatTypeRepository;
+    private readonly UserRepository _userRepository;
+    private readonly PaymentTransactionRepository _paymentTransactionRepository;
+    private readonly ETicketService _eTicketService;
     private readonly ApplicationDbContext _context;
 
     public OrderService(
@@ -28,6 +31,9 @@ public class OrderService
         SeatRepository seatRepository,
         ProductRepository productRepository,
         SeatTypeRepository seatTypeRepository,
+        UserRepository userRepository,
+        PaymentTransactionRepository paymentTransactionRepository,
+        ETicketService eTicketService,
         ApplicationDbContext context)
     {
         _orderRepository = orderRepository;
@@ -37,8 +43,12 @@ public class OrderService
         _seatRepository = seatRepository;
         _productRepository = productRepository;
         _seatTypeRepository = seatTypeRepository;
+        _userRepository = userRepository;
+        _paymentTransactionRepository = paymentTransactionRepository;
+        _eTicketService = eTicketService;
         _context = context;
     }
+
 
     public async Task<OrderResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -200,6 +210,210 @@ public class OrderService
     {
         var orders = await _orderRepository.GetExpiredOrdersAsync(cancellationToken);
         return orders.Select(MapToResponseDto).ToList();
+    }
+
+    // Staff Support Methods
+    public async Task<List<OrderSearchResultDto>> SearchByPhoneAsync(string phone, CancellationToken cancellationToken = default)
+    {
+        var user = await _userRepository.GetByPhoneAsync(phone, cancellationToken);
+        if (user == null)
+            return new List<OrderSearchResultDto>();
+
+        var orders = await _context.Orders
+            .Include(o => o.User)
+            .Include(o => o.OrderTickets)
+                .ThenInclude(ot => ot.Showtime)
+                    .ThenInclude(s => s.Movie)
+            .Where(o => o.UserId == user.Id && o.Status == Domain.Common.OrderStatus.Confirmed)
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return orders.Select(o => new OrderSearchResultDto
+        {
+            Id = o.Id,
+            CustomerName = o.User?.FullName ?? "N/A",
+            CustomerPhone = o.User?.Phone ?? phone,
+            CustomerEmail = o.User?.Email ?? "N/A",
+            TotalAmount = o.TotalAmount,
+            Status = o.Status.ToString(),
+            PaymentMethod = o.PaymentMethod,
+            CreatedAt = o.CreatedAt,
+            TicketCount = o.OrderTickets.Count,
+            MovieTitles = string.Join(", ", o.OrderTickets
+                .Select(ot => ot.Showtime?.Movie?.Title ?? "Unknown")
+                .Distinct())
+        }).ToList();
+    }
+
+    public async Task<OrderDetailDto?> GetForPrintAsync(Guid orderId, CancellationToken cancellationToken = default)
+    {
+        var order = await _orderRepository.GetWithDetailsAsync(orderId, cancellationToken);
+
+        if (order == null)
+            return null;
+
+        if (order.Status != Domain.Common.OrderStatus.Confirmed)
+            throw new InvalidOperationException("Only confirmed orders can be printed");
+
+        return MapToDetailDto(order);
+    }
+
+    /// <summary>
+    /// Tạo đơn hàng POS (Point of Sale) và thanh toán tiền mặt ngay lập tức
+    /// </summary>
+    public async Task<PosOrderResponseDto> CreatePosOrderAsync(PosOrderCreateDto dto, CancellationToken cancellationToken = default)
+    {
+        // Validate cash received is sufficient
+        decimal totalAmount = 0;
+
+        // Calculate total first to validate cash received
+        foreach (var ticketItem in dto.Tickets)
+        {
+            var showtime = await _showtimeRepository.GetByIdAsync(ticketItem.ShowtimeId, cancellationToken);
+            if (showtime == null)
+                throw new InvalidOperationException($"Showtime with id {ticketItem.ShowtimeId} not found");
+
+            var seat = await _seatRepository.GetByIdAsync(ticketItem.SeatId, cancellationToken);
+            if (seat == null)
+                throw new InvalidOperationException($"Seat with id {ticketItem.SeatId} not found");
+
+            // Check if seat is available
+            if (!await _seatRepository.IsSeatAvailableAsync(ticketItem.SeatId, ticketItem.ShowtimeId, cancellationToken))
+                throw new InvalidOperationException($"Seat {seat.SeatCode} is already booked for this showtime");
+
+            decimal ticketPrice = showtime.BasePrice;
+            if (!string.IsNullOrEmpty(seat.SeatTypeCode))
+            {
+                var seatType = await _seatTypeRepository.GetByCodeAsync(seat.SeatTypeCode, cancellationToken);
+                if (seatType != null)
+                    ticketPrice *= seatType.SurchargeRate;
+            }
+
+            totalAmount += ticketPrice;
+        }
+
+        foreach (var productItem in dto.Products)
+        {
+            var product = await _productRepository.GetByIdAsync(productItem.ProductId, cancellationToken);
+            if (product == null)
+                throw new InvalidOperationException($"Product with id {productItem.ProductId} not found");
+
+            if (!product.IsActive)
+                throw new InvalidOperationException($"Product {product.Name} is not active");
+
+            totalAmount += product.Price * productItem.Quantity;
+        }
+
+        // Validate cash received
+        if (dto.CashReceived < totalAmount)
+            throw new InvalidOperationException($"Số tiền khách đưa ({dto.CashReceived:N0} VND) không đủ để thanh toán ({totalAmount:N0} VND)");
+
+        // Create the order with Confirmed status (bypassing Pending)
+        var order = new Order
+        {
+            UserId = null, // POS orders are guest orders
+            Status = Domain.Common.OrderStatus.Confirmed,
+            PaymentMethod = "CASH",
+            CreatedAt = DateTime.UtcNow,
+            ExpireAt = null // No expiration for confirmed orders
+        };
+
+        // Process tickets
+        var orderTickets = new List<OrderTicket>();
+        foreach (var ticketItem in dto.Tickets)
+        {
+            var showtime = await _showtimeRepository.GetByIdAsync(ticketItem.ShowtimeId, cancellationToken);
+            var seat = await _seatRepository.GetByIdAsync(ticketItem.SeatId, cancellationToken);
+
+            decimal ticketPrice = showtime!.BasePrice;
+            if (!string.IsNullOrEmpty(seat!.SeatTypeCode))
+            {
+                var seatType = await _seatTypeRepository.GetByCodeAsync(seat.SeatTypeCode, cancellationToken);
+                if (seatType != null)
+                    ticketPrice *= seatType.SurchargeRate;
+            }
+
+            var orderTicket = new OrderTicket
+            {
+                OrderId = order.Id,
+                ShowtimeId = ticketItem.ShowtimeId,
+                SeatId = ticketItem.SeatId,
+                Price = ticketPrice
+            };
+
+            orderTickets.Add(orderTicket);
+            await _orderTicketRepository.AddAsync(orderTicket, cancellationToken);
+        }
+
+        // Process products
+        foreach (var productItem in dto.Products)
+        {
+            var product = await _productRepository.GetByIdAsync(productItem.ProductId, cancellationToken);
+
+            var orderProduct = new OrderProduct
+            {
+                OrderId = order.Id,
+                ProductId = productItem.ProductId,
+                Quantity = productItem.Quantity,
+                UnitPrice = product!.Price
+            };
+
+            await _orderProductRepository.AddAsync(orderProduct, cancellationToken);
+        }
+
+        order.TotalAmount = totalAmount;
+
+        // Add order to database
+        await _orderRepository.AddAsync(order, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Create payment transaction for cash payment
+        var paymentTransaction = new PaymentTransaction
+        {
+            OrderId = order.Id,
+            ProviderTransId = $"CASH-{order.Id}-{DateTime.UtcNow:yyyyMMddHHmmss}",
+            Amount = totalAmount,
+            Status = "Success",
+            ResponseJson = System.Text.Json.JsonDocument.Parse($"{{\"cashReceived\":{dto.CashReceived},\"change\":{dto.CashReceived - totalAmount},\"staffNote\":\"{dto.StaffNote ?? ""}\",\"customerName\":\"{dto.CustomerName}\",\"customerPhone\":\"{dto.CustomerPhone}\"}}"),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _paymentTransactionRepository.AddAsync(paymentTransaction, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Generate e-tickets for all order tickets
+        foreach (var orderTicket in orderTickets)
+        {
+            await _eTicketService.GenerateETicketAsync(orderTicket.Id, cancellationToken);
+        }
+
+        // Get the full order details with all related data for printing
+        var orderDetail = await _orderRepository.GetWithDetailsAsync(order.Id, cancellationToken);
+        if (orderDetail == null)
+            throw new InvalidOperationException("Failed to retrieve order details after creation");
+
+        // Build response for POS printing
+        var response = new PosOrderResponseDto
+        {
+            OrderDetail = MapToDetailDto(orderDetail),
+            PaymentInfo = new PosPaymentInfo
+            {
+                TotalAmount = totalAmount,
+                CashReceived = dto.CashReceived,
+                ChangeAmount = dto.CashReceived - totalAmount,
+                PaymentMethod = "CASH",
+                PaymentTime = DateTime.UtcNow,
+                TransactionId = paymentTransaction.Id
+            },
+            CustomerInfo = new PosCustomerInfo
+            {
+                Name = dto.CustomerName,
+                Phone = dto.CustomerPhone,
+                Email = dto.CustomerEmail
+            }
+        };
+
+        return response;
     }
 
     private static OrderResponseDto MapToResponseDto(Order order)
