@@ -135,3 +135,8 @@ Desktop.ini
 *~
 
 .github
+
+appsettings.json
+appsettings.Development.json
+appsettings.Production.json
+

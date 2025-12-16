@@ -2,6 +2,9 @@ using BE_CinePass.Core.Repositories;
 using BE_CinePass.Core.Configurations;
 using BE_CinePass.Domain.Models;
 using BE_CinePass.Shared.DTOs.Showtime;
+using BE_CinePass.Shared.DTOs.Seat;
+using BE_CinePass.Shared.Common;
+using BE_CinePass.Domain.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace BE_CinePass.Core.Services;
@@ -10,14 +13,27 @@ public class ShowtimeService
 {
     private readonly ShowtimeRepository _showtimeRepository;
     private readonly MovieRepository _movieRepository;
+    private readonly SeatRepository _seatRepository;
+    private readonly SeatTypeRepository _seatTypeRepository;
+    private readonly SeatHoldService _seatHoldService;
     private readonly ApplicationDbContext _context;
 
-    public ShowtimeService(ShowtimeRepository showtimeRepository, MovieRepository movieRepository, ApplicationDbContext context)
+    public ShowtimeService(
+        ShowtimeRepository showtimeRepository,
+        MovieRepository movieRepository,
+        SeatRepository seatRepository,
+        SeatTypeRepository seatTypeRepository,
+        SeatHoldService seatHoldService,
+        ApplicationDbContext context)
     {
         _showtimeRepository = showtimeRepository;
         _movieRepository = movieRepository;
+        _seatRepository = seatRepository;
+        _seatTypeRepository = seatTypeRepository;
+        _seatHoldService = seatHoldService;
         _context = context;
     }
+
 
     public async Task<ShowtimeResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -115,6 +131,108 @@ public class ShowtimeService
         if (result)
             await _context.SaveChangesAsync(cancellationToken);
         return result;
+    }
+
+    public async Task<ShowtimeResponseDto?> UpdatePriceAsync(Guid id, ShowtimeUpdatePriceDto dto, CancellationToken cancellationToken = default)
+    {
+        var showtime = await _showtimeRepository.GetByIdAsync(id, cancellationToken);
+        if (showtime == null)
+            return null;
+
+        showtime.BasePrice = dto.BasePrice;
+
+        _showtimeRepository.Update(showtime);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return MapToResponseDto(showtime);
+    }
+
+    public async Task<ShowtimeSeatsResponseDto?> GetSeatsWithStatusAsync(Guid showtimeId, CancellationToken cancellationToken = default)
+    {
+        // Get showtime with related data
+        var showtime = await _context.Showtimes
+            .Include(s => s.Screen)
+            .FirstOrDefaultAsync(s => s.Id == showtimeId, cancellationToken);
+
+        if (showtime == null)
+            return null;
+
+        // Get all seats for the screen
+        var seats = await _seatRepository.GetByScreenIdAsync(showtime.ScreenId, cancellationToken);
+
+        // Get sold seats (seats with confirmed orders)
+        var soldSeatIds = await _context.OrderTickets
+            .Where(ot => ot.ShowtimeId == showtimeId &&
+                         ot.Order.Status == Domain.Common.OrderStatus.Confirmed)
+            .Select(ot => ot.SeatId)
+            .ToListAsync(cancellationToken);
+
+        // Get all seat IDs to check for holds
+        var allSeatIds = seats.Select(s => s.Id).ToList();
+        var heldSeats = await _seatHoldService.GetHeldSeatsAsync(showtimeId, allSeatIds, cancellationToken);
+
+        // Get seat types for pricing
+        var seatTypes = await _seatTypeRepository.GetAllAsync(cancellationToken);
+        var seatTypeDict = seatTypes.ToDictionary(st => st.Code, st => st);
+
+        // Map seats with status
+        var seatsWithStatus = seats.Select(seat =>
+        {
+            SeatStatus status;
+            string? heldByUserId = null;
+
+            if (soldSeatIds.Contains(seat.Id))
+            {
+                status = SeatStatus.Sold;
+            }
+            else if (heldSeats.TryGetValue(seat.Id, out var userId))
+            {
+                status = SeatStatus.Holding;
+                heldByUserId = userId;
+            }
+            else
+            {
+                status = SeatStatus.Available;
+            }
+
+            // Calculate price based on seat type
+            decimal price = showtime.BasePrice;
+            if (!string.IsNullOrEmpty(seat.SeatTypeCode) &&
+                seatTypeDict.TryGetValue(seat.SeatTypeCode, out var seatType))
+            {
+                price = showtime.BasePrice * seatType.SurchargeRate;
+            }
+
+            return new SeatWithStatusDto
+            {
+                Id = seat.Id,
+                SeatRow = seat.SeatRow,
+                SeatNumber = seat.SeatNumber,
+                SeatCode = seat.SeatCode,
+                SeatTypeCode = seat.SeatTypeCode,
+                Status = status,
+                Price = price,
+                HeldByUserId = heldByUserId
+            };
+        }).OrderBy(s => s.SeatRow).ThenBy(s => s.SeatNumber).ToList();
+
+        // Calculate statistics
+        var availableCount = seatsWithStatus.Count(s => s.Status == SeatStatus.Available);
+        var soldCount = seatsWithStatus.Count(s => s.Status == SeatStatus.Sold);
+        var holdingCount = seatsWithStatus.Count(s => s.Status == SeatStatus.Holding);
+
+        return new ShowtimeSeatsResponseDto
+        {
+            ShowtimeId = showtime.Id,
+            ScreenId = showtime.ScreenId,
+            ScreenName = showtime.Screen.Name,
+            ShowDateTime = showtime.StartTime,
+            Seats = seatsWithStatus,
+            TotalSeats = seatsWithStatus.Count,
+            AvailableSeats = availableCount,
+            SoldSeats = soldCount,
+            HoldingSeats = holdingCount
+        };
     }
 
     private static ShowtimeResponseDto MapToResponseDto(Showtime showtime)

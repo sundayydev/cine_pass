@@ -31,6 +31,22 @@ public class ETicketRepository : BaseRepository<ETicket>, IETicketRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<ETicket?> GetByQrDataAsync(string qrData, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(et => et.OrderTicket)
+                .ThenInclude(ot => ot.Showtime)
+                    .ThenInclude(st => st.Movie)
+            .Include(et => et.OrderTicket)
+                .ThenInclude(ot => ot.Showtime)
+                    .ThenInclude(st => st.Screen)
+            .Include(et => et.OrderTicket)
+                .ThenInclude(ot => ot.Seat)
+            .Include(et => et.OrderTicket)
+                .ThenInclude(ot => ot.Order)
+            .FirstOrDefaultAsync(et => et.QrData == qrData, cancellationToken);
+    }
+
     public async Task<bool> IsTicketUsedAsync(string ticketCode, CancellationToken cancellationToken = default)
     {
         var ticket = await GetByTicketCodeAsync(ticketCode, cancellationToken);
