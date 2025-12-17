@@ -27,6 +27,17 @@ public class ShowtimeRepository : BaseRepository<Showtime>, IShowtimeRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<Showtime>> GetByCinemaIdAsync(Guid cinemaId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Showtimes
+            .Include(s => s.Movie)
+            .Include(s => s.Screen)
+            .ThenInclude(screen => screen.Cinema)
+            .Where(s => s.Screen.CinemaId == cinemaId && s.IsActive)
+            .OrderBy(s => s.StartTime)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Showtime>> GetByDateAsync(DateTime date, CancellationToken cancellationToken = default)
     {
         var startOfDay = date.Date;
