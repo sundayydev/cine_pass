@@ -30,6 +30,7 @@ export const PATHS = {
     CINEMAS: '/cinemas',
     CINEMA_CREATE: '/cinemas/create',
     CINEMA_DETAIL: '/cinemas/:id',
+    CINEMA_EDIT: '/cinemas/edit/:id',
     // Quản lý phòng chiếu trong cụm rạp cụ thể
     ROOMS: '/cinemas/:cinemaId/rooms',
     ROOM_SEAT_MAP: '/cinemas/:cinemaId/rooms/:roomId/seat-map', // Trang vẽ sơ đồ ghế

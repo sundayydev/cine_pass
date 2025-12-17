@@ -51,6 +51,7 @@ export interface MovieResponseDto {
   category: string; // Backend trả về string (PascalCase: "Action", "Comedy", etc.)
   status: string; // Backend trả về string (PascalCase: "Showing", "ComingSoon", "Ended")
   createdAt: string;
+  updatedAt: string;
 }
 
 /**

@@ -40,8 +40,8 @@ const generateSlug = (name: string): string => {
 // Schema validation
 const cinemaSchema = z.object({
   name: z.string().min(1, "Tên rạp không được để trống").max(255, "Tên rạp tối đa 255 ký tự"),
-  slug: z.string().regex(/^[a-z0-9-]+$/, "Slug chỉ được chứa chữ thường, số và dấu gạch ngang").optional().or(z.literal("")),
-  description: z.string().optional(),
+  slug: z.string().regex(/^[a-z0-9-]*$/, "Slug chỉ được chứa chữ thường, số và dấu gạch ngang").optional(),
+  description: z.string().max(2000, "Mô tả tối đa 2000 ký tự").optional(),
   address: z.string().max(500, "Địa chỉ tối đa 500 ký tự").optional(),
   city: z.string().max(100, "Thành phố tối đa 100 ký tự").optional(),
   phone: z.string().max(50, "Số điện thoại tối đa 50 ký tự").optional(),
@@ -163,18 +163,18 @@ const CreateCinemaPage = () => {
               {/* Thông tin cơ bản */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Thông tin cơ bản</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Tên rạp */}
-                <FormField
-                  control={form.control}
-                  name="name"
+                  <FormField
+                    control={form.control}
+                    name="name"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tên Rạp *</FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="Ví dụ: CGV Vincom" 
+                          <Input
+                            placeholder="Ví dụ: CGV Vincom"
                             {...field}
                             onChange={(e) => {
                               handleNameChange(e.target.value);
@@ -213,12 +213,16 @@ const CreateCinemaPage = () => {
                     <FormItem>
                       <FormLabel>Mô Tả</FormLabel>
                       <FormControl>
-                        <Textarea 
-                          placeholder="Mô tả về rạp chiếu phim..." 
+                        <Textarea
+                          placeholder="Mô tả về rạp chiếu phim..."
                           className="min-h-[100px]"
-                          {...field} 
+                          {...field}
+                          value={field.value || ""}
                         />
                       </FormControl>
+                      <FormDescription>
+                        Giới thiệu ngắn gọn về rạp chiếu phim này
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -228,7 +232,7 @@ const CreateCinemaPage = () => {
               {/* Địa điểm & Liên hệ */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Địa điểm & Liên hệ</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Địa chỉ */}
                   <FormField
@@ -270,10 +274,10 @@ const CreateCinemaPage = () => {
                       <FormItem>
                         <FormLabel>Vĩ Độ (Latitude)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
+                          <Input
+                            type="number"
                             step="any"
-                            placeholder="Ví dụ: 21.0285" 
+                            placeholder="Ví dụ: 21.0285"
                             {...field}
                             onChange={(e) => {
                               const value = e.target.value;
@@ -296,10 +300,10 @@ const CreateCinemaPage = () => {
                       <FormItem>
                         <FormLabel>Kinh Độ (Longitude)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
+                          <Input
+                            type="number"
                             step="any"
-                            placeholder="Ví dụ: 105.8542" 
+                            placeholder="Ví dụ: 105.8542"
                             {...field}
                             onChange={(e) => {
                               const value = e.target.value;
@@ -366,7 +370,7 @@ const CreateCinemaPage = () => {
               {/* Hình ảnh & Thông tin phụ */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Hình ảnh & Thông tin phụ</h3>
-                
+
                 <FormField
                   control={form.control}
                   name="bannerUrl"
@@ -389,11 +393,11 @@ const CreateCinemaPage = () => {
                     <FormItem>
                       <FormLabel>Tổng Số Phòng Chiếu</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
+                        <Input
+                          type="number"
                           min="0"
                           max="100"
-                          placeholder="0" 
+                          placeholder="0"
                           {...field}
                           onChange={(e) => {
                             const value = e.target.value;
