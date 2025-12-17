@@ -9,6 +9,7 @@ public interface IShowtimeRepository : IRepository<Showtime>
 {
     Task<IEnumerable<Showtime>> GetByMovieIdAsync(Guid movieId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Showtime>> GetByScreenIdAsync(Guid screenId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Showtime>> GetByCinemaIdAsync(Guid cinemaId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Showtime>> GetByDateAsync(DateTime date, CancellationToken cancellationToken = default);
     Task<IEnumerable<Showtime>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, CancellationToken cancellationToken = default);
     Task<IEnumerable<Showtime>> GetActiveShowtimesAsync(CancellationToken cancellationToken = default);
