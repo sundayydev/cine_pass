@@ -2,6 +2,7 @@ using BE_CinePass.Shared.DTOs.User;
 using BE_CinePass.Shared.DTOs.Showtime;
 using BE_CinePass.Shared.DTOs.Seat;
 using BE_CinePass.Shared.DTOs.Product;
+using BE_CinePass.Shared.DTOs.ETicket;
 
 namespace BE_CinePass.Shared.DTOs.Order;
 
@@ -27,6 +28,7 @@ public class OrderTicketDetailDto
     public decimal Price { get; set; }
     public ShowtimeDetailDto? Showtime { get; set; }
     public SeatResponseDto? Seat { get; set; }
+    public ETicketResponseDto? ETicket { get; set; }
 }
 
 public class OrderProductDetailDto

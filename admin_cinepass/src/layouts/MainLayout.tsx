@@ -15,6 +15,7 @@ import {
   User2,
   UserCircle,
   UserPlus,
+  Popcorn,
 } from 'lucide-react';
 
 // Shadcn Components
@@ -42,6 +43,7 @@ const NAV_ITEMS = [
   { label: 'Quản lý diễn viên', icon: UserPlus, path: PATHS.ACTORS },
   { label: 'Rạp & Phòng', icon: Tv, path: PATHS.CINEMAS }, // Icon Tv đại diện cho màn hình chiếu
   { label: 'Lịch Chiếu', icon: CalendarDays, path: PATHS.SHOWTIMES },
+  { label: 'Đồ ăn', icon: Popcorn, path: PATHS.PRODUCTS },
   { label: 'Vé Đặt', icon: Ticket, path: PATHS.BOOKINGS },
   { label: 'Khách hàng', icon: Users, path: PATHS.USERS }, // Giả sử bạn có path này
 ];

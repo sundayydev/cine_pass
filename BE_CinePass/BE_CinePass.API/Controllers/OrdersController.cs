@@ -20,6 +20,31 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>
+    /// Lấy danh sách tất cả đơn hàng
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(List<OrderResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<OrderResponseDto>>> GetAll()
+    {
+        try
+        {
+            // Không truyền CancellationToken để tránh request bị cancel khi client disconnect
+            var orders = await _orderService.GetAllAsync();
+            return Ok(ApiResponseDto<List<OrderResponseDto>>.SuccessResult(orders));
+        }
+        catch (OperationCanceledException)
+        {
+            // Request bị hủy bởi client - không cần log error
+            return StatusCode(499, ApiResponseDto<List<OrderResponseDto>>.ErrorResult("Request was cancelled"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all orders");
+            return StatusCode(500, ApiResponseDto<List<OrderResponseDto>>.ErrorResult("Lỗi khi lấy danh sách đơn hàng"));
+        }
+    }
+
+    /// <summary>
     /// Lấy thông tin đơn hàng theo ID
     /// </summary>
     [HttpGet("{id}")]

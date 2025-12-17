@@ -176,5 +176,43 @@ public class ETicketsController : ControllerBase
             return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi khi check-in vé"));
         }
     }
+
+    /// <summary>
+    /// Check-in vé bằng mã QR (quét QR code)
+    /// </summary>
+    /// <param name="request">Request chứa dữ liệu QR</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Kết quả check-in bao gồm trạng thái và thông tin vé</returns>
+    [HttpPost("checkin")]
+    [ProducesResponseType(typeof(TicketVerificationResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<TicketVerificationResultDto>> CheckinByQr([FromBody] VerifyTicketDto request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.QrData))
+                return BadRequest(ApiResponseDto<TicketVerificationResultDto>.ErrorResult("Dữ liệu QR không được để trống"));
+
+            var result = await _eTicketService.VerifyAndUseTicketAsync(request.QrData, cancellationToken);
+
+            if (!result.IsValid)
+            {
+                // Return result with success=false but include the verification details
+                return Ok(new ApiResponseDto<TicketVerificationResultDto>
+                {
+                    Success = false,
+                    Message = result.Message,
+                    Data = result
+                });
+            }
+
+            return Ok(ApiResponseDto<TicketVerificationResultDto>.SuccessResult(result, result.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error checking in ticket with QR data");
+            return StatusCode(500, ApiResponseDto<TicketVerificationResultDto>.ErrorResult("Lỗi khi check-in vé"));
+        }
+    }
 }
 

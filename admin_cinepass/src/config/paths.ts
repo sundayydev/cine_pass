@@ -39,6 +39,11 @@ export const PATHS = {
     SHOWTIMES: '/showtimes',
     SHOWTIME_SEATS: '/showtimes/:showtimeId/seats',
 
+    // Products (Sản phẩm)
+    PRODUCTS: '/products',
+    PRODUCT_CREATE: '/products/create',
+    PRODUCT_EDIT: '/products/edit/:id',
+
     // Bookings (Đơn hàng)
     BOOKINGS: '/bookings',
     BOOKING_DETAIL: '/bookings/:id',
