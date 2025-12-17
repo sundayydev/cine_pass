@@ -37,8 +37,7 @@ export const PATHS = {
 
     // Showtimes (Lịch chiếu)
     SHOWTIMES: '/showtimes',
-    SHOWTIME_CREATE: '/showtimes/create',
-    SHOWTIME_EDIT: '/showtimes/edit/:id',
+    SHOWTIME_SEATS: '/showtimes/:showtimeId/seats',
 
     // Bookings (Đơn hàng)
     BOOKINGS: '/bookings',

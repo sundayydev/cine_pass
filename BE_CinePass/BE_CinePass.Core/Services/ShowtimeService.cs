@@ -34,6 +34,11 @@ public class ShowtimeService
         _context = context;
     }
 
+    public async Task<List<ShowtimeResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var showtimes = await _showtimeRepository.GetAllAsync(cancellationToken);
+        return showtimes.Select(MapToResponseDto).ToList();
+    }
 
     public async Task<ShowtimeResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
