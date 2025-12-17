@@ -223,5 +223,27 @@ public class MoviesController : ControllerBase
             return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi khi xóa phim"));
         }
     }
+    [HttpGet("{id}/cinemas")]
+    [ProducesResponseType(typeof(MovieCinemasWithShowtimesResponseDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<MovieCinemasWithShowtimesResponseDto>> GetCinemasWithShowtimes(
+        Guid id,
+        [FromQuery] DateTime? date,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result = await _movieService.GetCinemasWithShowtimesAsync(id, date, cancellationToken);
+
+            if (result == null)
+                return NotFound(ApiResponseDto<object>.ErrorResult("Không có suất chiếu nào cho phim này"));
+
+            return Ok(ApiResponseDto<MovieCinemasWithShowtimesResponseDto>.SuccessResult(result));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting cinemas for movie {MovieId}", id);
+            return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi server"));
+        }
+    }
 }
 

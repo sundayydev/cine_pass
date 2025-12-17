@@ -16,5 +16,7 @@ public class MovieResponseDto
     public string Category { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public double? AverageRating { get; set; }
+    public int? TotalReviews { get; set; }
 }
 

@@ -264,7 +264,7 @@ public class CinemaService
             .ToDictionary(
                 g => g.Key,
                 g => g.Select(s => s.Movie)
-                    .DistinctBy(m => m.Id) 
+                    .DistinctBy(m => m.Id)
                     .OrderBy(m => m.Title)
                     .Select(m => new MovieResponseDto
                     {
@@ -277,7 +277,7 @@ public class CinemaService
                         DurationMinutes = m.DurationMinutes,
                         ReleaseDate = m.ReleaseDate,
                         Category = m.Category.ToString(),
-                        Status = m.Status.ToString(), 
+                        Status = m.Status.ToString(),
                         CreatedAt = m.CreatedAt
                     })
                     .ToList()
@@ -387,46 +387,90 @@ public class CinemaService
             };
         }
 
+        // 3. Lấy danh sách MovieId
+        var movieIds = showtimes
+            .Select(s => s.MovieId)
+            .Distinct()
+            .ToList();
+
+        var ratings = await _context.MovieReviews
+            .AsNoTracking()
+            .Where(r =>
+                r.MovieId.HasValue &&
+                r.Rating.HasValue &&
+                movieIds.Contains(r.MovieId.Value)
+            )
+            .GroupBy(r => r.MovieId!.Value)
+            .Select(g => new
+            {
+                MovieId = g.Key,
+                AverageRating = g.Average(x => x.Rating!.Value),
+                TotalReviews = g.Count()
+            })
+            .ToDictionaryAsync(
+                x => x.MovieId,
+                x => new
+                {
+                    x.AverageRating,
+                    x.TotalReviews
+                },
+                cancellationToken
+            );
+
         // Group theo Movie để gom lịch chiếu
         var grouped = showtimes
             .GroupBy(s => s.MovieId)
-            .Select(g => new MovieWithShowtimesDto
+            .Select(g =>
             {
-                Movie = new MovieResponseDto
+                var movie = g.First().Movie;
+                ratings.TryGetValue(movie.Id, out var rating);
+
+                return new MovieWithShowtimesDto
                 {
-                    Id = g.First().Movie.Id,
-                    Title = g.First().Movie.Title,
-                    Slug = g.First().Movie.Slug,
-                    Description = g.First().Movie.Description,
-                    PosterUrl = g.First().Movie.PosterUrl,
-                    TrailerUrl = g.First().Movie.TrailerUrl,
-                    DurationMinutes = g.First().Movie.DurationMinutes,
-                    ReleaseDate = g.First().Movie.ReleaseDate,
-                    Category = g.First().Movie.Category.ToString(),
-                    Status = g.First().Movie.Status.ToString(),
-                    CreatedAt = g.First().Movie.CreatedAt
-                },
-                Showtimes = g.Select(s => new ShowtimeResponseDto
+                    Movie = new MovieResponseDto
                     {
-                        Id = s.Id,
-                        MovieId = s.MovieId,
-                        ScreenId = s.ScreenId,
-                        StartTime = s.StartTime,
-                        EndTime = s.EndTime,
-                        BasePrice = s.BasePrice,
-                        IsActive = s.IsActive
-                    })
-                    .OrderBy(st => st.StartTime)
-                    .ToList()
+                        Id = movie.Id,
+                        Title = movie.Title,
+                        Slug = movie.Slug,
+                        Description = movie.Description,
+                        PosterUrl = movie.PosterUrl,
+                        TrailerUrl = movie.TrailerUrl,
+                        DurationMinutes = movie.DurationMinutes,
+                        ReleaseDate = movie.ReleaseDate,
+                        Category = movie.Category.ToString(),
+                        Status = movie.Status.ToString(),
+                        CreatedAt = movie.CreatedAt,
+                        AgeLimit = movie.AgeLimit,
+
+                        // ⭐ Rating
+                        AverageRating = rating?.AverageRating ?? 0,
+                        TotalReviews = rating?.TotalReviews ?? 0
+                    },
+                    Showtimes = g
+                        .Select(s => new ShowtimeResponseDto
+                        {
+                            Id = s.Id,
+                            MovieId = s.MovieId,
+                            ScreenId = s.ScreenId,
+                            StartTime = s.StartTime,
+                            EndTime = s.EndTime,
+                            BasePrice = s.BasePrice,
+                            IsActive = s.IsActive
+                        })
+                        .OrderBy(st => st.StartTime)
+                        .ToList()
+                };
             })
-            .OrderBy(m => m.Movie.Title)
+            .OrderBy(x => x.Movie.Title)
             .ToList();
 
+        // 6. Response
         return new CinemaMoviesWithShowtimesResponseDto
         {
             CinemaId = cinema.Id,
             CinemaName = cinema.Name,
             Slug = cinema.Slug ?? string.Empty,
+            Address = cinema.Address,
             Movies = grouped
         };
     }
