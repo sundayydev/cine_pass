@@ -113,6 +113,69 @@ public class SeatService
         return await _seatRepository.IsSeatAvailableAsync(seatId, showtimeId, cancellationToken);
     }
 
+    /// <summary>
+    /// Tự động tạo ghế theo cấu hình hàng và cột
+    /// </summary>
+    public async Task<List<SeatResponseDto>> GenerateSeatsAsync(Guid screenId, int rows, int seatsPerRow, string? defaultSeatTypeCode = null, CancellationToken cancellationToken = default)
+    {
+        // Validate screen exists
+        var screen = await _screenRepository.GetByIdAsync(screenId, cancellationToken);
+        if (screen == null)
+            throw new InvalidOperationException($"Không tìm thấy màn hình có ID {screenId}");
+
+        // Validate seat type if provided
+        if (!string.IsNullOrEmpty(defaultSeatTypeCode))
+        {
+            var seatType = await _seatTypeRepository.GetByCodeAsync(defaultSeatTypeCode, cancellationToken);
+            if (seatType == null)
+                throw new InvalidOperationException($"Không tìm thấy loại ghế có mã {defaultSeatTypeCode}");
+        }
+
+        // Delete existing seats for this screen
+        var existingSeats = await _seatRepository.GetByScreenIdAsync(screenId, cancellationToken);
+        foreach (var existingSeat in existingSeats)
+        {
+            _seatRepository.Remove(existingSeat);
+        }
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Generate new seats
+        var seats = new List<Seat>();
+        var rowLabels = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        for (int i = 0; i < rows; i++)
+        {
+            string rowLabel = i < rowLabels.Length ? rowLabels[i].ToString() : $"R{i + 1}";
+
+            for (int j = 1; j <= seatsPerRow; j++)
+            {
+                var seatCode = $"{rowLabel}{j}";
+                var seat = new Seat
+                {
+                    ScreenId = screenId,
+                    SeatRow = rowLabel,
+                    SeatNumber = j,
+                    SeatCode = seatCode,
+                    SeatTypeCode = defaultSeatTypeCode,
+                    IsActive = true,
+                    QrOrderingCode = (i * seatsPerRow + j).ToString()
+                };
+
+                seats.Add(seat);
+            }
+        }
+
+        await _seatRepository.AddRangeAsync(seats, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Update screen total seats
+        screen.TotalSeats = seats.Count;
+        _screenRepository.Update(screen);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return seats.Select(MapToResponseDto).ToList();
+    }
+
     private static SeatResponseDto MapToResponseDto(Seat seat)
     {
         return new SeatResponseDto

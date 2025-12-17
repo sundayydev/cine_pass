@@ -27,6 +27,12 @@ import SeatTypesListPage from '@/features/seat-types';
 import CreateSeatTypePage from '@/features/seat-types/CreateSeatType';
 import EditSeatTypePage from '@/features/seat-types/EditSeatType';
 
+// Actor Pages
+import ActorListPage from '@/features/actors';
+import CreateActorPage from '@/features/actors/CreateActor';
+import EditActorPage from '@/features/actors/EditActor';
+import ActorDetailPage from '@/features/actors/ActorDetail';
+
 // Showtime Pages
 import { ShowtimeList, CreateShowtime, EditShowtime } from '@/features/showtimes';
 
@@ -51,7 +57,7 @@ export const router = createBrowserRouter([
       { path: PATHS.LOGIN, element: Loadable(LoginPage) },
       { path: PATHS.FORGOT_PASSWORD, element: Loadable(ForgotPasswordPage) },
       { path: PATHS.RESET_PASSWORD, element: Loadable(ResetPasswordPage) },
-    ]   
+    ]
   },
 
   // 2. PROTECTED ROUTES (Cần đăng nhập)
@@ -61,11 +67,11 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <MainLayout />
       </ProtectedRoute>
-    ), 
+    ),
     children: [
-      { 
-        index: true, 
-        element: <Navigate to={PATHS.DASHBOARD} replace /> 
+      {
+        index: true,
+        element: <Navigate to={PATHS.DASHBOARD} replace />
       },
       { path: PATHS.DASHBOARD, element: Loadable(DashboardPage) },
       { path: PATHS.MOVIES, element: Loadable(MovieListPage) },
@@ -75,12 +81,15 @@ export const router = createBrowserRouter([
       { path: PATHS.CINEMAS, element: Loadable(CinemasListPage) },
       { path: PATHS.CINEMA_CREATE, element: Loadable(CreateCinemaPage) },
       { path: PATHS.CINEMA_DETAIL, element: Loadable(CinemaDetailPage) },
-      { path: '/cinemas/edit/:id', element: Loadable(EditCinemaPage) },
-      { path: '/cinemas/:cinemaId/screens/:roomId/seats', element: Loadable(ScreenSeatsPage) },
+      { path: PATHS.CINEMA_EDIT, element: Loadable(EditCinemaPage) },
+      { path: PATHS.ROOM_SEAT_MAP, element: Loadable(ScreenSeatsPage) },
       { path: PATHS.SEAT_TYPES, element: Loadable(SeatTypesListPage) },
       { path: PATHS.SEAT_TYPE_CREATE, element: Loadable(CreateSeatTypePage) },
       { path: PATHS.SEAT_TYPE_EDIT, element: Loadable(EditSeatTypePage) },
-
+      { path: PATHS.ACTORS, element: Loadable(ActorListPage) },
+      { path: PATHS.ACTOR_CREATE, element: Loadable(CreateActorPage) },
+      { path: PATHS.ACTOR_EDIT, element: Loadable(EditActorPage) },
+      { path: PATHS.ACTOR_DETAIL, element: Loadable(ActorDetailPage) },
       // Showtime Routes
       { path: PATHS.SHOWTIMES, element: Loadable(ShowtimeList) },
       { path: PATHS.SHOWTIME_CREATE, element: Loadable(CreateShowtime) },

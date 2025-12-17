@@ -1,632 +1,674 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Pencil, Trash2, Users, MapPin, Phone, Mail, Building2, Globe, Image, MapPinned, Armchair } from "lucide-react";
-import { toast } from "sonner";
+import { useNavigate, useParams } from "react-router-dom";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
+import {
+  ArrowLeft,
+  MapPin,
+  Phone,
+  Mail,
+  Globe,
+  Building2,
+  Pencil,
+  Loader2,
+  MonitorPlay,
+  Plus,
+  Settings,
+  Calendar,
+  Hash,
+  Info,
+  Layers,
+  CheckCircle2,
+  XCircle,
+  Armchair,
+  Wifi,
+  Car,
+  Glasses,
+  Utensils,
+  Accessibility,
+  Snowflake,
+  CreditCard,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 
-// API Services
+// API & Types
 import { cinemaApi, type CinemaResponseDto } from "@/services/apiCinema";
-import { screenApi, type ScreenResponseDto } from "@/services/apiScreen";
+import { screenApi, type ScreenResponseDto, type ScreenCreateDto, type ScreenUpdateDto } from "@/services/apiScreen";
 import { PATHS } from "@/config/paths";
 
-// Shadcn UI
+// Components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const CinemaDetailPage = () => {
-  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
+  const { id } = useParams<{ id: string }>();
   const [cinema, setCinema] = useState<CinemaResponseDto | null>(null);
   const [screens, setScreens] = useState<ScreenResponseDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreateScreenOpen, setIsCreateScreenOpen] = useState(false);
-  const [isCreatingScreen, setIsCreatingScreen] = useState(false);
+  const [isLoadingScreens, setIsLoadingScreens] = useState(false);
 
-  // Form state for creating screen
+  // Screen Modal States
+  const [isScreenModalOpen, setIsScreenModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [editingScreen, setEditingScreen] = useState<ScreenResponseDto | null>(null);
+  const [screenToDelete, setScreenToDelete] = useState<ScreenResponseDto | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Screen Form State
   const [screenForm, setScreenForm] = useState({
     name: "",
-    totalSeats: "",
-    seatMapLayout: "",
+    totalSeats: 0,
   });
-  
-  // Seat map editor state
-  const [seatMapRows, setSeatMapRows] = useState(10);
-  const [seatMapCols, setSeatMapCols] = useState(15);
-  const [seatMap, setSeatMap] = useState<boolean[][]>([]);
-  const [showSeatMapEditor, setShowSeatMapEditor] = useState(false);
 
+  // --- 1. Fetch Data ---
   useEffect(() => {
-    if (id) {
-      loadData();
-    }
-  }, [id]);
-
-  const loadData = async () => {
-    if (!id) return;
-
-    try {
-      setIsLoading(true);
-      const [cinemaData, screensData] = await Promise.all([
-        cinemaApi.getById(id),
-        screenApi.getByCinemaId(id),
-      ]);
-      setCinema(cinemaData);
-      setScreens(screensData);
-    } catch (error) {
-      console.error("Error loading data:", error);
-      toast.error("Lỗi khi tải thông tin");
-      navigate(PATHS.CINEMAS);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Initialize seat map
-  const initializeSeatMap = () => {
-    const newMap: boolean[][] = Array(seatMapRows)
-      .fill(null)
-      .map(() => Array(seatMapCols).fill(false));
-    setSeatMap(newMap);
-  };
-
-  // Toggle seat in map
-  const toggleSeat = (row: number, col: number) => {
-    const newMap = seatMap.map((r, rIdx) =>
-      rIdx === row
-        ? r.map((seat, cIdx) => (cIdx === col ? !seat : seat))
-        : r
-    );
-    setSeatMap(newMap);
-    updateSeatMapLayout(newMap);
-  };
-
-  // Update seat map layout JSON
-  const updateSeatMapLayout = (map: boolean[][]) => {
-    const layout: (string | null)[][] = map.map((row, rowIdx) =>
-      row.map((hasSeat, colIdx) => {
-        if (!hasSeat) return null;
-        const rowLabel = String.fromCharCode(65 + rowIdx); // A, B, C, ...
-        return `${rowLabel}${colIdx + 1}`;
-      })
-    );
-    setScreenForm({ ...screenForm, seatMapLayout: JSON.stringify(layout) });
-  };
-
-  // Load seat map from JSON
-  const loadSeatMapFromLayout = (layoutJson: string) => {
-    try {
-      if (!layoutJson) {
-        initializeSeatMap();
+    const loadCinema = async () => {
+      if (!id) {
+        navigate(PATHS.CINEMAS);
         return;
       }
-      const layout: (string | null)[][] = JSON.parse(layoutJson);
-      const rows = layout.length;
-      const cols = layout[0]?.length || 0;
-      
-      setSeatMapRows(rows);
-      setSeatMapCols(cols);
-      
-      const newMap: boolean[][] = layout.map((row) =>
-        row.map((seat) => seat !== null)
-      );
-      setSeatMap(newMap);
-    } catch (error) {
-      console.error("Error parsing seat map layout:", error);
-      initializeSeatMap();
-    }
-  };
 
-  const handleCreateScreen = async () => {
+      try {
+        setIsLoading(true);
+        const cinemaData = await cinemaApi.getById(id);
+        setCinema(cinemaData);
+
+        // Load screens
+        setIsLoadingScreens(true);
+        try {
+          const screensData = await screenApi.getByCinemaId(id);
+          setScreens(screensData);
+        } catch (screenError) {
+          console.error("Load Screens Error:", screenError);
+        } finally {
+          setIsLoadingScreens(false);
+        }
+      } catch (error) {
+        console.error("Load Cinema Error:", error);
+        toast.error("Không thể tải thông tin rạp chiếu phim.");
+        navigate(PATHS.CINEMAS);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCinema();
+  }, [id, navigate]);
+
+  // --- 2. Screen Handlers ---
+  const loadScreens = async () => {
     if (!id) return;
-
-    if (!screenForm.name || !screenForm.totalSeats) {
-      toast.error("Vui lòng điền đầy đủ thông tin");
-      return;
-    }
-
+    setIsLoadingScreens(true);
     try {
-      setIsCreatingScreen(true);
-      await screenApi.create({
-        cinemaId: id,
-        name: screenForm.name,
-        totalSeats: parseInt(screenForm.totalSeats),
-        seatMapLayout: screenForm.seatMapLayout || undefined,
-      });
-      toast.success("Tạo phòng chiếu thành công");
-      setIsCreateScreenOpen(false);
-      setScreenForm({ name: "", totalSeats: "", seatMapLayout: "" });
-      setShowSeatMapEditor(false);
-      setSeatMap([]);
-      loadData();
+      const screensData = await screenApi.getByCinemaId(id);
+      setScreens(screensData);
     } catch (error) {
-      console.error("Error creating screen:", error);
-      toast.error(error instanceof Error ? error.message : "Lỗi khi tạo phòng chiếu");
+      console.error("Load Screens Error:", error);
+      toast.error("Không thể tải danh sách phòng chiếu.");
     } finally {
-      setIsCreatingScreen(false);
+      setIsLoadingScreens(false);
     }
   };
 
-  const handleDeleteScreen = async (screenId: string, screenName: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa phòng "${screenName}"?`)) {
+  const handleOpenScreenModal = (screen?: ScreenResponseDto) => {
+    if (screen) {
+      // Edit mode
+      setEditingScreen(screen);
+      setScreenForm({
+        name: screen.name,
+        totalSeats: screen.totalSeats,
+      });
+    } else {
+      // Create mode
+      setEditingScreen(null);
+      setScreenForm({
+        name: "",
+        totalSeats: 0,
+      });
+    }
+    setIsScreenModalOpen(true);
+  };
+
+  const handleOpenDeleteModal = (screen: ScreenResponseDto) => {
+    setScreenToDelete(screen);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleSubmitScreen = async () => {
+    if (!id) return;
+    if (!screenForm.name.trim() || screenForm.totalSeats <= 0) {
+      toast.error("Vui lòng điền đầy đủ thông tin hợp lệ.");
       return;
     }
 
+    setIsSubmitting(true);
     try {
-      await screenApi.delete(screenId);
-      toast.success("Xóa phòng chiếu thành công");
-      loadData();
-    } catch (error) {
-      console.error("Error deleting screen:", error);
-      toast.error(error instanceof Error ? error.message : "Lỗi khi xóa phòng chiếu");
+      if (editingScreen) {
+        // Update existing screen
+        await screenApi.update(editingScreen.id, {
+          name: screenForm.name,
+          totalSeats: screenForm.totalSeats,
+        });
+        toast.success(`Cập nhật phòng chiếu "${screenForm.name}" thành công!`);
+      } else {
+        // Create new screen
+        await screenApi.create({
+          cinemaId: id,
+          name: screenForm.name,
+          totalSeats: screenForm.totalSeats,
+        });
+        toast.success(`Tạo phòng chiếu "${screenForm.name}" thành công!`);
+      }
+
+      setIsScreenModalOpen(false);
+      await loadScreens();
+
+      // Reload cinema to update totalScreens count
+      const cinemaData = await cinemaApi.getById(id);
+      setCinema(cinemaData);
+    } catch (error: any) {
+      console.error("Submit Screen Error:", error);
+      toast.error(error.message || "Có lỗi xảy ra khi lưu phòng chiếu.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const handleDeleteScreen = async () => {
+    if (!screenToDelete) return;
+
+    setIsSubmitting(true);
+    try {
+      await screenApi.delete(screenToDelete.id);
+      toast.success(`Đã xóa phòng chiếu "${screenToDelete.name}"`);
+      setIsDeleteModalOpen(false);
+      await loadScreens();
+
+      // Reload cinema to update totalScreens count
+      if (id) {
+        const cinemaData = await cinemaApi.getById(id);
+        setCinema(cinemaData);
+      }
+    } catch (error: any) {
+      console.error("Delete Screen Error:", error);
+      toast.error(error.message || "Không thể xóa phòng chiếu.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- 3. Helpers ---
+  const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("vi-VN");
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: vi });
+    } catch {
+      return dateString;
+    }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Spinner />
+      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Đang tải dữ liệu rạp...</p>
       </div>
     );
   }
 
-  if (!cinema) {
-    return null;
-  }
+  const getFacilityIcon = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes("wifi") || n.includes("internet")) return <Wifi className="h-4 w-4 text-blue-500" />;
+    if (n.includes("xe") || n.includes("parking") || n.includes("đỗ")) return <Car className="h-4 w-4 text-orange-500" />;
+    if (n.includes("ăn") || n.includes("food") || n.includes("corn") || n.includes("nước")) return <Utensils className="h-4 w-4 text-red-500" />;
+    if (n.includes("3d") || n.includes("imax") || n.includes("4dx")) return <Glasses className="h-4 w-4 text-purple-500" />;
+    if (n.includes("khuyết") || n.includes("wheelchair")) return <Accessibility className="h-4 w-4 text-green-500" />;
+    if (n.includes("ghế") || n.includes("seat") || n.includes("vip")) return <Armchair className="h-4 w-4 text-amber-500" />;
+    if (n.includes("lạnh") || n.includes("ac")) return <Snowflake className="h-4 w-4 text-cyan-500" />;
+    if (n.includes("thẻ") || n.includes("card")) return <CreditCard className="h-4 w-4 text-indigo-500" />;
+
+    // Icon mặc định
+    return <CheckCircle2 className="h-4 w-4 text-primary" />;
+  };
+
+  if (!cinema) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(PATHS.CINEMAS)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">{cinema.name}</h1>
-          <p className="text-muted-foreground mt-1">Chi tiết rạp chiếu phim và quản lý phòng chiếu</p>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0f172a] pb-20">
+      {/* --- HERO SECTION --- */}
+      <div className="relative h-[280px] w-full overflow-hidden group">
+        {/* Background Image with Blur */}
+        <div
+          className="absolute inset-0 bg-cover bg-center blur-sm scale-110 opacity-50 dark:opacity-30 transition-transform duration-700 group-hover:scale-105"
+          style={{ backgroundImage: `url(${cinema.bannerUrl || "https://placehold.co/1200x400/e2e8f0/64748b?text=Cinema"})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-50 dark:from-[#0f172a] via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-transparent" />
+
+        {/* Header Actions */}
+        <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-10">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="backdrop-blur-md bg-white/20 hover:bg-white/40 text-white border-none shadow-sm"
+            onClick={() => navigate(PATHS.CINEMAS)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Quay lại danh sách
+          </Button>
+
+          <Button
+            className="shadow-lg bg-primary hover:bg-primary/90"
+            onClick={() => navigate(PATHS.CINEMA_EDIT.replace(":id", cinema.id))}
+          >
+            <Pencil className="h-4 w-4 mr-2" />
+            Chỉnh sửa thông tin
+          </Button>
         </div>
-        <Button onClick={() => navigate(`/cinemas/edit/${cinema.id}`)}>
-          <Pencil className="mr-2 h-4 w-4" />
-          Chỉnh Sửa
-        </Button>
       </div>
 
-      {/* Cinema Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Thông Tin Rạp Chiếu Phim</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {cinema.description && (
-              <div>
-                <p className="text-sm font-medium mb-1">Mô Tả</p>
-                <p className="text-sm text-muted-foreground">{cinema.description}</p>
-              </div>
-            )}
-            {cinema.address && (
-              <div className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Địa Chỉ</p>
-                  <p className="text-sm text-muted-foreground">{cinema.address}</p>
-                </div>
-              </div>
-            )}
-            {cinema.city && (
-              <div className="flex items-start gap-3">
-                <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Thành Phố</p>
-                  <p className="text-sm text-muted-foreground">{cinema.city}</p>
-                </div>
-              </div>
-            )}
-            {(cinema.latitude !== null && cinema.latitude !== undefined) || (cinema.longitude !== null && cinema.longitude !== undefined) ? (
-              <div className="flex items-start gap-3">
-                <MapPinned className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Tọa Độ</p>
-                  <p className="text-sm text-muted-foreground">
-                    {cinema.latitude !== null && cinema.latitude !== undefined && cinema.longitude !== null && cinema.longitude !== undefined
-                      ? `${cinema.latitude}, ${cinema.longitude}`
-                      : cinema.latitude !== null && cinema.latitude !== undefined
-                      ? `Lat: ${cinema.latitude}`
-                      : `Lng: ${cinema.longitude}`}
-                  </p>
-                </div>
-              </div>
-            ) : null}
-            {cinema.phone && (
-              <div className="flex items-start gap-3">
-                <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Số Điện Thoại</p>
-                  <p className="text-sm text-muted-foreground">{cinema.phone}</p>
-                </div>
-              </div>
-            )}
-            {cinema.email && (
-              <div className="flex items-start gap-3">
-                <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Email</p>
-                  <p className="text-sm text-muted-foreground">{cinema.email}</p>
-                </div>
-              </div>
-            )}
-            {cinema.website && (
-              <div className="flex items-start gap-3">
-                <Globe className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Website</p>
-                  <a 
-                    href={cinema.website} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    {cinema.website}
-                  </a>
-                </div>
-              </div>
-            )}
-            {cinema.bannerUrl && (
-              <div className="flex items-start gap-3">
-                <Image className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Banner</p>
-                  <a 
-                    href={cinema.bannerUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Xem hình ảnh
-                  </a>
-                </div>
-              </div>
-            )}
-            {cinema.facilities && cinema.facilities.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-2">Tiện Ích</p>
-                <div className="flex flex-wrap gap-2">
-                  {cinema.facilities.map((facility, index) => (
-                    <Badge key={index} variant="secondary">
-                      {facility}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium">Trạng Thái:</p>
+      {/* --- MAIN CONTENT CONTAINER --- */}
+      <div className="container max-w-6xl mx-auto px-4 -mt-32 relative z-20">
+
+        {/* Cinema Profile Header */}
+        <div className="flex flex-col md:flex-row items-start gap-6 mb-8">
+          {/* Logo / Thumbnail */}
+          <div className="relative h-40 w-40 md:h-48 md:w-48 rounded-2xl overflow-hidden border-4 border-white dark:border-[#1e293b] shadow-2xl bg-white flex-shrink-0">
+            <img
+              src={cinema.bannerUrl || "/placeholder.svg"}
+              alt={cinema.name}
+              className="h-full w-full object-cover"
+              onError={(e) => (e.target as HTMLImageElement).src = "https://placehold.co/400x400/e2e8f0/64748b?text=Logo"}
+            />
+          </div>
+
+          {/* Title & Badges */}
+          <div className="flex-1 pt-2 md:pt-12 text-slate-800 dark:text-slate-100">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
               {cinema.isActive ? (
-                <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 border-emerald-500/30">
+                <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 border-emerald-500/20 pl-1 pr-3 py-1">
+                  <span className="relative flex h-2 w-2 mr-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
                   Đang hoạt động
                 </Badge>
               ) : (
-                <Badge variant="outline">Ngừng hoạt động</Badge>
+                <Badge variant="destructive" className="pl-1 pr-3 py-1">
+                  <XCircle className="h-3 w-3 mr-2" /> Ngừng hoạt động
+                </Badge>
+              )}
+              {cinema.city && (
+                <Badge variant="outline" className="bg-background/50 backdrop-blur-sm">
+                  <MapPin className="h-3 w-3 mr-1" /> {cinema.city}
+                </Badge>
               )}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Thống Kê</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Slug</p>
-              <p className="text-sm font-mono">{cinema.slug || "-"}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Tổng số phòng chiếu</p>
-              <p className="text-2xl font-bold">{cinema.totalScreens ?? screens.length}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Số phòng đã tạo</p>
-              <p className="text-2xl font-bold">{screens.length}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Tổng sức chứa</p>
-              <p className="text-2xl font-bold">
-                {screens.reduce((sum, screen) => sum + screen.totalSeats, 0)}
-              </p>
-            </div>
-            {cinema.createdAt && (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Ngày tạo</p>
-                <p className="text-sm">{formatDate(cinema.createdAt)}</p>
-              </div>
-            )}
-            {cinema.updatedAt && (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Ngày cập nhật</p>
-                <p className="text-sm">{formatDate(cinema.updatedAt)}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Screens Management */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Phòng Chiếu</CardTitle>
-              <CardDescription>Quản lý các phòng chiếu trong rạp</CardDescription>
-            </div>
-            <Button onClick={() => setIsCreateScreenOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Thêm Phòng
-            </Button>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2 shadow-black drop-shadow-sm">{cinema.name}</h1>
+            <p className="flex items-center text-muted-foreground font-medium">
+              <Building2 className="h-4 w-4 mr-1.5" />
+              {cinema.totalScreens} phòng chiếu
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {screens.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Users className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">Chưa có phòng chiếu nào</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tên Phòng</TableHead>
-                  <TableHead>Sức Chứa</TableHead>
-                  <TableHead>Bản Đồ Ghế</TableHead>
-                  <TableHead>Ngày Cập Nhật</TableHead>
-                  <TableHead>Ngày Tạo</TableHead>
-                  <TableHead className="text-center w-1/8">Thao Tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {screens.map((screen) => (
-                  <TableRow key={screen.id}>
-                    <TableCell className="font-medium">{screen.name}</TableCell>
-                    <TableCell>{screen.totalSeats}</TableCell>
-                    <TableCell>{screen.seatMapLayout || "-"}</TableCell>
-                    <TableCell>{screen.updatedAt ? formatDate(screen.updatedAt) : "-"}</TableCell>
-                    <TableCell>{screen.createdAt ? formatDate(screen.createdAt) : "-"}</TableCell>
-                    <TableCell className="w-1/8">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => navigate(`/cinemas/${id}/screens/${screen.id}/seats`)}
-                        >
-                          <Armchair className="h-4 w-4 text-green-500 hover:text-green-900" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteScreen(screen.id, screen.name)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Create Screen Form */}
-      {isCreateScreenOpen && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Thêm Phòng Chiếu Mới</CardTitle>
-            <CardDescription>Điền thông tin để tạo phòng chiếu mới trong rạp này</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Tên Phòng *</Label>
-                <Input
-                  id="name"
-                  placeholder="Ví dụ: Phòng 1"
-                  value={screenForm.name}
-                  onChange={(e) => setScreenForm({ ...screenForm, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="totalSeats">Sức Chứa *</Label>
-                <Input
-                  id="totalSeats"
-                  type="number"
-                  placeholder="Ví dụ: 100"
-                  value={screenForm.totalSeats}
-                  onChange={(e) => setScreenForm({ ...screenForm, totalSeats: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="seatMapLayout">Bản Đồ Ghế</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (showSeatMapEditor) {
-                        loadSeatMapFromLayout(screenForm.seatMapLayout);
-                      } else {
-                        if (screenForm.seatMapLayout) {
-                          loadSeatMapFromLayout(screenForm.seatMapLayout);
-                        } else {
-                          initializeSeatMap();
-                        }
-                      }
-                      setShowSeatMapEditor(!showSeatMapEditor);
-                    }}
-                  >
-                    {showSeatMapEditor ? "Ẩn Bản Đồ" : "Hiện Bản Đồ"}
-                  </Button>
-                </div>
-                
-                {showSeatMapEditor ? (
-                  <div className="space-y-4 border rounded-lg p-4">
-                    {/* Controls */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="rows">Số Hàng</Label>
-                        <Input
-                          id="rows"
-                          type="number"
-                          min="1"
-                          max="26"
-                          value={seatMapRows}
-                          onChange={(e) => {
-                            const rows = parseInt(e.target.value) || 1;
-                            setSeatMapRows(rows);
-                            const newMap: boolean[][] = Array(rows)
-                              .fill(null)
-                              .map(() => Array(seatMapCols).fill(false));
-                            setSeatMap(newMap);
-                            updateSeatMapLayout(newMap);
-                          }}
-                        />
+        {/* --- TABS SECTION --- */}
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full md:w-[500px] grid-cols-3 bg-white dark:bg-[#1e293b] p-1 shadow-sm border border-slate-200 dark:border-slate-800 h-12 rounded-xl">
+            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-slate-100 dark:data-[state=active]:bg-slate-800">Tổng quan</TabsTrigger>
+            <TabsTrigger value="screens" className="rounded-lg data-[state=active]:bg-slate-100 dark:data-[state=active]:bg-slate-800">
+              Phòng chiếu ({screens.length})
+            </TabsTrigger>
+            <TabsTrigger value="technical" className="rounded-lg data-[state=active]:bg-slate-100 dark:data-[state=active]:bg-slate-800">Kỹ thuật</TabsTrigger>
+          </TabsList>
+
+          {/* TAB 1: OVERVIEW */}
+          <TabsContent value="overview" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              {/* Left Column: Contact Info */}
+              <div className="space-y-6 lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Info className="h-5 w-5 text-primary" /> Thông tin liên hệ
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-6">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-md">
+                          <MapPin className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium uppercase">Địa chỉ</p>
+                          <p className="text-sm font-medium mt-0.5 truncate w-[240px]">{cinema.address || "Chưa cập nhật"}</p>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cols">Số Cột</Label>
-                        <Input
-                          id="cols"
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={seatMapCols}
-                          onChange={(e) => {
-                            const cols = parseInt(e.target.value) || 1;
-                            setSeatMapCols(cols);
-                            const newMap: boolean[][] = Array(seatMapRows)
-                              .fill(null)
-                              .map(() => Array(cols).fill(false));
-                            setSeatMap(newMap);
-                            updateSeatMapLayout(newMap);
-                          }}
-                        />
+
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-md">
+                          <Phone className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium uppercase">Hotline</p>
+                          <p className="text-sm font-medium mt-0.5">{cinema.phone || "Chưa cập nhật"}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                        <div className="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-md">
+                          <Mail className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium uppercase">Email</p>
+                          <p className="text-sm font-medium mt-0.5">{cinema.email || "Chưa cập nhật"}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-md">
+                          <Globe className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground font-medium uppercase">Website</p>
+                          {cinema.website ? (
+                            <a href={cinema.website} target="_blank" className="text-sm font-medium mt-0.5 text-primary hover:underline truncate w-[200px] block">
+                              {cinema.website}
+                            </a>
+                          ) : (
+                            <p className="text-sm font-medium mt-0.5">Chưa cập nhật</p>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
 
-                    {/* Seat Map Grid */}
-                    <div className="space-y-2">
-                      <Label>Bấm vào ô để thêm/xóa ghế</Label>
-                      <div className="border rounded-lg p-4 bg-muted/30 overflow-auto max-h-[400px]">
-                        {/* Screen indicator */}
-                        <div className="text-center py-2 bg-muted rounded-lg mb-4">
-                          <p className="text-sm font-medium">Màn hình</p>
-                        </div>
-                        
-                        {/* Seat grid */}
-                        <div className="space-y-1">
-                          {/* Column headers */}
-                          <div className="flex gap-1 mb-2">
-                            <div className="w-8"></div>
-                            {Array.from({ length: seatMapCols }, (_, i) => (
-                              <div
-                                key={i}
-                                className="w-8 h-8 flex items-center justify-center text-xs font-semibold"
-                              >
-                                {i + 1}
-                              </div>
-                            ))}
-                          </div>
-                          
-                          {/* Rows */}
-                          {seatMap.map((row, rowIdx) => (
-                            <div key={rowIdx} className="flex items-center gap-1">
-                              <div className="w-8 h-8 flex items-center justify-center text-sm font-semibold">
-                                {String.fromCharCode(65 + rowIdx)}
-                              </div>
-                              {row.map((hasSeat, colIdx) => (
-                                <button
-                                  key={colIdx}
-                                  type="button"
-                                  onClick={() => toggleSeat(rowIdx, colIdx)}
-                                  className={`w-8 h-8 rounded border-2 transition-all ${
-                                    hasSeat
-                                      ? "bg-emerald-500 border-emerald-600 hover:bg-emerald-600"
-                                      : "bg-gray-200 border-gray-300 hover:bg-gray-300"
-                                  }`}
-                                  title={`${String.fromCharCode(65 + rowIdx)}${colIdx + 1}`}
-                                />
-                              ))}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Layers className="h-5 w-5 text-primary" /> Giới thiệu
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                      {cinema.description || "Chưa có mô tả giới thiệu cho rạp chiếu phim này."}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right Column: Facilities & Map */}
+              <div className="space-y-6">
+                <Card className="h-full border-none shadow-md bg-white dark:bg-[#1e293b]">
+                  <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <CardTitle className="flex items-center gap-2 text-base font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      <Sparkles className="h-4 w-4 text-primary" /> Tiện ích nổi bật
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    {cinema.facilities && cinema.facilities.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {cinema.facilities.map((facility, idx) => (
+                          <div
+                            key={idx}
+                            className="group flex items-center gap-3 p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 hover:border-primary/30 hover:bg-primary/5 transition-all duration-300"
+                          >
+                            <div className="flex-shrink-0 p-2 bg-white dark:bg-slate-900 rounded-md shadow-sm group-hover:scale-110 transition-transform">
+                              {getFacilityIcon(facility)}
                             </div>
-                          ))}
-                        </div>
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-200 line-clamp-2">
+                              {facility}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                      
-                      {/* Legend */}
-                      <div className="flex gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded border-2 bg-emerald-500 border-emerald-600"></div>
-                          <span>Có ghế</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded border-2 bg-gray-200 border-gray-300"></div>
-                          <span>Không có ghế</span>
-                        </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground bg-slate-50 dark:bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                        <Sparkles className="h-8 w-8 mb-2 text-slate-300" />
+                        <span className="text-sm">Chưa cập nhật tiện ích</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* TAB 2: SCREENS */}
+          <TabsContent value="screens" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Danh sách phòng chiếu</CardTitle>
+                  <CardDescription>Quản lý các phòng chiếu thuộc rạp {cinema.name}</CardDescription>
+                </div>
+                <Button onClick={() => handleOpenScreenModal()} size="sm" className="bg-primary shadow-md">
+                  <Plus className="h-4 w-4 mr-2" /> Thêm phòng mới
+                </Button>
+              </CardHeader>
+              <Separator />
+              <CardContent className="p-6">
+                {isLoadingScreens ? (
+                  <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                ) : screens.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {screens.map((screen) => (
+                      <Card key={screen.id} className="group overflow-hidden border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:shadow-md transition-all duration-300">
+                        <div className="h-2 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-70 group-hover:opacity-100 transition-opacity" />
+                        <CardContent className="p-5">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                              <MonitorPlay className="h-6 w-6" />
+                            </div>
+                          </div>
+
+                          <h3 className="font-bold text-lg mb-1">{screen.name}</h3>
+                          <div className="flex items-center text-muted-foreground text-sm mb-6">
+                            <Armchair className="h-4 w-4 mr-1.5" />
+                            {screen.totalSeats} ghế ngồi
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              variant="outline"
+                              className="w-full text-xs h-9 hover:bg-primary hover:text-white hover:border-primary transition-colors"
+                              onClick={() => navigate(PATHS.ROOM_SEAT_MAP.replace(":cinemaId", cinema.id).replace(":roomId", screen.id))}
+                            >
+                              <Settings className="h-3 w-3 mr-1.5" /> Sơ đồ ghế
+                            </Button>
+                            <Button variant="ghost" className="w-full text-xs h-9" onClick={() => handleOpenScreenModal(screen)}>
+                              <Pencil className="h-3 w-3 mr-1.5" /> Chỉnh sửa
+                            </Button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 right-2 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleOpenDeleteModal(screen)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="h-20 w-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                      <MonitorPlay className="h-10 w-10 text-slate-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Chưa có phòng chiếu nào</h3>
+                    <p className="text-slate-500 max-w-sm mt-1 mb-6">Hãy tạo phòng chiếu đầu tiên để bắt đầu thiết lập lịch chiếu cho rạp này.</p>
+                    <Button onClick={() => handleOpenScreenModal()}>Tạo phòng chiếu ngay</Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Create/Edit Screen Modal */}
+            <Dialog open={isScreenModalOpen} onOpenChange={setIsScreenModalOpen}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>{editingScreen ? "Chỉnh sửa phòng chiếu" : "Tạo phòng chiếu mới"}</DialogTitle>
+                  <DialogDescription>
+                    {editingScreen
+                      ? `Cập nhật thông tin phòng chiếu "${editingScreen.name}"`
+                      : `Thêm phòng chiếu mới cho rạp ${cinema.name}`
+                    }
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="screen-name">Tên phòng chiếu *</Label>
+                    <Input
+                      id="screen-name"
+                      placeholder="VD: Phòng 1, Screen A, IMAX Hall..."
+                      value={screenForm.name}
+                      onChange={(e) => setScreenForm({ ...screenForm, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="screen-seats">Tổng số ghế *</Label>
+                    <Input
+                      id="screen-seats"
+                      type="number"
+                      min="1"
+                      placeholder="VD: 100"
+                      value={screenForm.totalSeats || ""}
+                      onChange={(e) => setScreenForm({ ...screenForm, totalSeats: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 flex items-start gap-2">
+                      <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>Sơ đồ ghế có thể được thiết lập sau khi tạo phòng chiếu thông qua chức năng "Sơ đồ ghế".</span>
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsScreenModalOpen(false)} disabled={isSubmitting}>
+                    Hủy
+                  </Button>
+                  <Button onClick={handleSubmitScreen} disabled={isSubmitting || !screenForm.name || screenForm.totalSeats <= 0}>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Đang xử lý...
+                      </>
+                    ) : editingScreen ? (
+                      "Cập nhật"
+                    ) : (
+                      "Tạo phòng chiếu"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Delete Screen Confirmation */}
+            <AlertDialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Phòng chiếu <strong className="text-foreground">"{screenToDelete?.name}"</strong> sẽ bị xóa vĩnh viễn.
+                    Hành động này không thể hoàn tác. Tất cả lịch chiếu và dữ liệu liên quan cũng sẽ bị ảnh hưởng.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isSubmitting}>Hủy</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteScreen}
+                    disabled={isSubmitting}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Đang xóa...
+                      </>
+                    ) : (
+                      "Xóa phòng chiếu"
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TabsContent>
+
+          {/* TAB 3: TECHNICAL */}
+          <TabsContent value="technical" className="animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+            <Card>
+              <CardHeader>
+                <CardTitle>Thông tin kỹ thuật & Metadata</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
+                      <Hash className="h-3 w-3" /> Cinema ID
+                    </label>
+                    <div className="font-mono text-sm bg-slate-100 dark:bg-slate-900 p-3 rounded-md border select-all">
+                      {cinema.id}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
+                      <Globe className="h-3 w-3" /> SEO Slug
+                    </label>
+                    <div className="font-mono text-sm bg-slate-100 dark:bg-slate-900 p-3 rounded-md border select-all">
+                      {cinema.slug}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
+                      <Calendar className="h-3 w-3" /> Ngày khởi tạo
+                    </label>
+                    <p className="text-sm font-medium border-b py-2">{formatDate(cinema.createdAt)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1">
+                      <Calendar className="h-3 w-3" /> Cập nhật lần cuối
+                    </label>
+                    <p className="text-sm font-medium border-b py-2">{formatDate(cinema.updatedAt)}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Separator className="my-2" />
+                    <h4 className="text-sm font-semibold mb-2">Tọa độ địa lý (GPS)</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded border">
+                        <span className="text-xs text-muted-foreground block">Latitude</span>
+                        <span className="font-mono">{cinema.latitude || "N/A"}</span>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded border">
+                        <span className="text-xs text-muted-foreground block">Longitude</span>
+                        <span className="font-mono">{cinema.longitude || "N/A"}</span>
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <Textarea
-                    id="seatMapLayout"
-                    placeholder="JSON layout hoặc bấm 'Hiện Bản Đồ' để vẽ trực quan..."
-                    value={screenForm.seatMapLayout}
-                    onChange={(e) => setScreenForm({ ...screenForm, seatMapLayout: e.target.value })}
-                    className="font-mono text-xs"
-                    rows={4}
-                  />
-                )}
-              </div>
-              <div className="flex items-center justify-end gap-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsCreateScreenOpen(false);
-                    setScreenForm({ name: "", totalSeats: "", seatMapLayout: "" });
-                    setShowSeatMapEditor(false);
-                    setSeatMap([]);
-                  }}
-                  disabled={isCreatingScreen}
-                >
-                  Hủy
-                </Button>
-                <Button onClick={handleCreateScreen} disabled={isCreatingScreen}>
-                  {isCreatingScreen && <Spinner className="mr-2 h-4 w-4" />}
-                  Tạo Phòng
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div >
+    </div >
   );
 };
 
 export default CinemaDetailPage;
-

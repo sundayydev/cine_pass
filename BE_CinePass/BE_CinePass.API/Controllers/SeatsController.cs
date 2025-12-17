@@ -157,6 +157,33 @@ public class SeatsController : ControllerBase
     }
 
     /// <summary>
+    /// Tự động tạo ghế theo cấu hình
+    /// </summary>
+    [HttpPost("generate")]
+    [ProducesResponseType(typeof(List<SeatResponseDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<List<SeatResponseDto>>> GenerateSeats([FromBody] SeatGenerateDto dto, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponseDto<List<SeatResponseDto>>.ErrorResult("Dữ liệu không hợp lệ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()));
+
+            var seats = await _seatService.GenerateSeatsAsync(dto.ScreenId, dto.Rows, dto.SeatsPerRow, dto.DefaultSeatTypeCode, cancellationToken);
+            return CreatedAtAction(nameof(GetByScreenId), new { screenId = dto.ScreenId }, ApiResponseDto<List<SeatResponseDto>>.SuccessResult(seats, $"Đã tạo {seats.Count} ghế thành công"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponseDto<List<SeatResponseDto>>.ErrorResult(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating seats");
+            return StatusCode(500, ApiResponseDto<List<SeatResponseDto>>.ErrorResult("Lỗi khi tạo ghế tự động"));
+        }
+    }
+
+    /// <summary>
     /// Xóa ghế
     /// </summary>
     [HttpDelete("{id}")]

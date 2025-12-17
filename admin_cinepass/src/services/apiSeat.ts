@@ -25,6 +25,16 @@ export interface SeatCreateDto {
 }
 
 /**
+ * DTO cho tạo ghế tự động
+ */
+export interface SeatGenerateDto {
+  screenId: string;
+  rows: number;
+  seatsPerRow: number;
+  defaultSeatTypeCode?: string;
+}
+
+/**
  * DTO cho cập nhật ghế
  */
 export interface SeatUpdateDto {
@@ -132,6 +142,23 @@ export const create = async (dto: SeatCreateDto): Promise<SeatResponseDto> => {
 };
 
 /**
+ * Tự động tạo ghế theo cấu hình
+ * POST /api/seats/generate
+ */
+export const generateSeats = async (dto: SeatGenerateDto): Promise<SeatResponseDto[]> => {
+  const response = (await axiosClient.post(
+    '/api/seats/generate',
+    dto
+  )) as ApiResponseDto<SeatResponseDto[]>;
+
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Lỗi khi tạo ghế tự động');
+  }
+
+  return response.data;
+};
+
+/**
  * Cập nhật thông tin ghế
  * PUT /api/seats/{id}
  */
@@ -173,6 +200,7 @@ export const seatApi = {
   getById,
   isSeatAvailable,
   create,
+  generateSeats,
   update,
   delete: deleteSeat,
 };
