@@ -367,12 +367,12 @@ const ShowtimeSeatsPage = () => {
                         <div>
                             <h1 className="text-2xl font-bold flex items-center gap-2">
                                 <Armchair className="w-6 h-6 text-primary" />
-                                Đặt Vé - {seatsData.movieTitle}
+                                Đặt Vé - {seatsData?.movieTitle}
                             </h1>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                                 <span className="flex items-center gap-1">
                                     <Monitor className="w-4 h-4" />
-                                    {seatsData.screenName}
+                                    {seatsData?.screenName}
                                 </span>
                                 <span className="flex items-center gap-1">
                                     <Calendar className="w-4 h-4" />

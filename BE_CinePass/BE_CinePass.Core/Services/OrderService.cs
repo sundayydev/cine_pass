@@ -487,6 +487,7 @@ public class OrderService
                     {
                         Id = ot.Showtime.Screen.Id,
                         CinemaId = ot.Showtime.Screen.CinemaId,
+                        CinemaName = ot.Showtime.Screen.Cinema?.Name,
                         Name = ot.Showtime.Screen.Name,
                         TotalSeats = ot.Showtime.Screen.TotalSeats,
                         SeatMapLayout = ot.Showtime.Screen.SeatMapLayout?.RootElement.GetRawText()

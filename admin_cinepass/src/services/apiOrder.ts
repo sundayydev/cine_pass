@@ -94,6 +94,7 @@ export interface MovieInfo {
 export interface ScreenInfo {
   id: string;
   cinemaId: string;
+  cinemaName?: string;
   name: string;
   totalSeats: number;
   seatMapLayout?: string;
