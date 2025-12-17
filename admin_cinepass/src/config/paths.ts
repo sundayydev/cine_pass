@@ -20,12 +20,19 @@ export const PATHS = {
     SEAT_TYPE_EDIT: '/seat-types/edit/:code',
     SEAT_TYPE_DETAIL: '/seat-types/:code',
 
+    // Actors (Quản lý Diễn viên)
+    ACTORS: '/actors',
+    ACTOR_CREATE: '/actors/create',
+    ACTOR_EDIT: '/actors/edit/:id',
+    ACTOR_DETAIL: '/actors/:slug',
+
     // Cinemas (Quản lý Rạp & Phòng & Ghế)
     CINEMAS: '/cinemas',
     CINEMA_CREATE: '/cinemas/create',
     CINEMA_DETAIL: '/cinemas/:id',
+    CINEMA_EDIT: '/cinemas/edit/:id',
     // Quản lý phòng chiếu trong cụm rạp cụ thể
-    ROOMS: '/cinemas/:cinemaId/rooms', 
+    ROOMS: '/cinemas/:cinemaId/rooms',
     ROOM_SEAT_MAP: '/cinemas/:cinemaId/rooms/:roomId/seat-map', // Trang vẽ sơ đồ ghế
 
     // Showtimes (Lịch chiếu)
