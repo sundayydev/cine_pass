@@ -145,6 +145,33 @@ export const useTicket = async (ticketCode: string): Promise<void> => {
   }
 };
 
+/**
+ * Kết quả check-in/xác thực vé
+ */
+export interface TicketVerificationResult {
+  isValid: boolean;
+  status: 'Valid' | 'Invalid' | 'AlreadyUsed';
+  message: string;
+  ticketDetail?: ETicketDetailDto;
+}
+
+/**
+ * Check-in vé bằng mã QR
+ * POST /api/etickets/checkin
+ */
+export const checkinByQr = async (qrData: string): Promise<TicketVerificationResult> => {
+  const response = (await axiosClient.post(
+    '/api/etickets/checkin',
+    { qrData }
+  )) as ApiResponseDto<TicketVerificationResult>;
+
+  if (!response.data) {
+    throw new Error(response.message || 'Lỗi khi check-in vé');
+  }
+
+  return response.data;
+};
+
 // ==================== EXPORT OBJECT ====================
 
 /**
@@ -158,5 +185,6 @@ export const eTicketApi = {
   generateETicket,
   validateTicket,
   useTicket,
+  checkinByQr,
 };
 
