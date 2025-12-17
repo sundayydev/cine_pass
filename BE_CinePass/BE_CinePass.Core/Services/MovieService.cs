@@ -3,6 +3,8 @@ using BE_CinePass.Core.Configurations;
 using BE_CinePass.Domain.Models;
 using BE_CinePass.Shared.Common;
 using BE_CinePass.Shared.DTOs.Movie;
+using BE_CinePass.Shared.DTOs.Showtime;
+using Microsoft.EntityFrameworkCore;
 
 namespace BE_CinePass.Core.Services;
 
@@ -132,6 +134,81 @@ public class MovieService
         if (result)
             await _context.SaveChangesAsync(cancellationToken);
         return result;
+    }
+    public async Task<MovieCinemasWithShowtimesResponseDto?> GetCinemasWithShowtimesAsync(
+        Guid movieId,
+        DateTime? date = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Showtimes
+            .AsNoTracking()
+            .Include(s => s.Screen)
+            .ThenInclude(sc => sc.Cinema)
+            .Include(s => s.Movie)
+            .Where(s => s.MovieId == movieId && s.IsActive);
+
+        if (date.HasValue)
+        {
+            var dateUtc = DateTime.SpecifyKind(
+                date.Value.Date,
+                DateTimeKind.Utc
+            );
+
+            var nextDateUtc = dateUtc.AddDays(1);
+
+            query = query.Where(s =>
+                s.StartTime >= dateUtc &&
+                s.StartTime < nextDateUtc
+            );
+        }
+        else
+        {
+            var todayUtc = DateTime.UtcNow.Date;
+            query = query.Where(s => s.StartTime >= todayUtc);
+        }
+
+
+        var showtimes = await query
+            .OrderBy(s => s.Screen.Cinema.Name)
+            .ThenBy(s => s.StartTime)
+            .ToListAsync(cancellationToken);
+
+        if (!showtimes.Any())
+            return null;
+
+        var movie = showtimes.First().Movie;
+
+        var grouped = showtimes
+            .GroupBy(s => s.Screen.Cinema)
+            .Select(g => new CinemaWithShowtimesForMovieDto
+            {
+                CinemaId = g.Key.Id,
+                CinemaName = g.Key.Name,
+                Slug = g.Key.Slug ?? string.Empty,
+                Address = g.Key.Address,
+                Phone = g.Key.Phone,
+                BannerUrl = g.Key.BannerUrl,
+                TotalScreens = g.Key.TotalScreens,
+                Showtimes = g.Select(s => new ShowtimeResponseDto
+                {
+                    Id = s.Id,
+                    ScreenId = s.ScreenId,
+                    StartTime = s.StartTime,
+                    EndTime = s.EndTime,
+                    BasePrice = s.BasePrice,
+                    IsActive = s.IsActive
+                }).OrderBy(st => st.StartTime).ToList()
+            })
+            .OrderBy(c => c.CinemaName)
+            .ToList();
+
+        return new MovieCinemasWithShowtimesResponseDto
+        {
+            MovieId = movieId,
+            MovieTitle = movie.Title,
+            PosterUrl = movie.PosterUrl,
+            Cinemas = grouped
+        };
     }
 
     private static string GenerateSlug(string title)
