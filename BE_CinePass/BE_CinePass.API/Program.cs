@@ -191,7 +191,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CinePassCors", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
+        policy.SetIsOriginAllowed(_ => true) 
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
