@@ -105,6 +105,81 @@ export interface CinemaUpdateDto {
   isActive?: boolean;
 }
 
+/**
+ * DTO cho MovieResponseDto (phim từ backend)
+ */
+export interface MovieResponseDto {
+  id: string;
+  title: string;
+  slug?: string;
+  durationMinutes: number;
+  description?: string;
+  ageLimit: number;
+  posterUrl?: string;
+  trailerUrl?: string;
+  releaseDate?: string;
+  category: string;
+  status: string;
+  createdAt: string;
+}
+
+/**
+ * DTO cho ShowtimeResponseDto (lịch chiếu từ backend)
+ */
+export interface ShowtimeResponseDto {
+  id: string;
+  movieId: string;
+  screenId: string;
+  startTime: string;
+  endTime: string;
+  basePrice: number;
+  isActive: boolean;
+}
+
+/**
+ * DTO cho phim kèm lịch chiếu (MovieWithShowtimesDto)
+ */
+export interface MovieWithShowtimesDto {
+  movie: MovieResponseDto;
+  showtimes: ShowtimeResponseDto[];
+}
+
+/**
+ * DTO chi tiết rạp kèm phim đang chiếu (CinemaDetailResponseDto)
+ */
+export interface CinemaDetailResponseDto {
+  id: string;
+  name: string;
+  slug: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  latitude?: number;
+  longitude?: number;
+  bannerUrl?: string;
+  totalScreens: number;
+  facilities?: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+
+  // Danh sách phim đang chiếu tại rạp này
+  currentlyShowingMovies: MovieResponseDto[];
+}
+
+/**
+ * DTO rạp kèm phim và lịch chiếu (CinemaMoviesWithShowtimesResponseDto)
+ */
+export interface CinemaMoviesWithShowtimesResponseDto {
+  cinemaId: string;
+  cinemaName: string;
+  slug?: string;
+  address?: string;
+  movies: MovieWithShowtimesDto[];
+}
+
 // ==================== API FUNCTIONS ====================
 
 /**
@@ -136,7 +211,7 @@ export const getActive = async (): Promise<CinemaResponseDto[]> => {
  * GET /api/cinemas/city/{city}
  */
 export const getByCity = async (city: string): Promise<CinemaResponseDto[]> => {
-  const response = await axiosClient.get(`/api/cinemas/city/${city}`) as ApiResponseDto<CinemaResponseDto[]>;
+  const response = await axiosClient.get(`/api/cinemas/city/${encodeURIComponent(city)}`) as ApiResponseDto<CinemaResponseDto[]>;
   if (!response.success || !response.data) {
     throw new Error(response.message || `Lỗi khi lấy danh sách rạp tại ${city}`);
   }
@@ -196,6 +271,69 @@ export const deleteCinema = async (id: string): Promise<void> => {
   }
 };
 
+/**
+ * Lấy danh sách phim đang chiếu tại một rạp cụ thể
+ * GET /api/cinemas/{cinemaId}/movies
+ */
+export const getCurrentlyShowingMovies = async (cinemaId: string): Promise<MovieResponseDto[]> => {
+  const response = await axiosClient.get(`/api/cinemas/${cinemaId}/movies`) as ApiResponseDto<MovieResponseDto[]>;
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Lỗi khi lấy danh sách phim đang chiếu');
+  }
+  return response.data;
+};
+
+/**
+ * Lấy thông tin chi tiết rạp kèm danh sách phim đang chiếu
+ * GET /api/cinemas/{cinemaId}/detail
+ */
+export const getCinemaDetail = async (cinemaId: string): Promise<CinemaDetailResponseDto> => {
+  const response = await axiosClient.get(`/api/cinemas/${cinemaId}/detail`) as ApiResponseDto<CinemaDetailResponseDto>;
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Lỗi khi lấy thông tin chi tiết rạp');
+  }
+  return response.data;
+};
+
+/**
+ * Lấy danh sách tất cả rạp kèm phim đang chiếu
+ * GET /api/cinemas/with-movies
+ */
+export const getAllWithMovies = async (): Promise<CinemaDetailResponseDto[]> => {
+  const response = await axiosClient.get('/api/cinemas/with-movies') as ApiResponseDto<CinemaDetailResponseDto[]>;
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Lỗi khi lấy danh sách rạp và phim đang chiếu');
+  }
+  return response.data;
+};
+
+/**
+ * Lấy tất cả phim kèm lịch chiếu tại rạp (từ giờ trở đi)
+ * GET /api/cinemas/{cinemaId}/movies-with-showtimes
+ */
+export const getMoviesWithShowtimes = async (cinemaId: string): Promise<CinemaMoviesWithShowtimesResponseDto> => {
+  const response = await axiosClient.get(`/api/cinemas/${cinemaId}/movies-with-showtimes`) as ApiResponseDto<CinemaMoviesWithShowtimesResponseDto>;
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Lỗi khi lấy lịch chiếu');
+  }
+  return response.data;
+};
+
+/**
+ * Lấy phim kèm lịch chiếu tại rạp theo ngày cụ thể
+ * GET /api/cinemas/{cinemaId}/movies-with-showtimes/by-date?date={date}
+ */
+export const getMoviesWithShowtimesByDate = async (cinemaId: string, date: Date): Promise<CinemaMoviesWithShowtimesResponseDto> => {
+  const dateString = date.toISOString();
+  const response = await axiosClient.get(`/api/cinemas/${cinemaId}/movies-with-showtimes/by-date`, {
+    params: { date: dateString }
+  }) as ApiResponseDto<CinemaMoviesWithShowtimesResponseDto>;
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Lỗi khi lấy lịch chiếu theo ngày');
+  }
+  return response.data;
+};
+
 // ==================== EXPORT OBJECT ====================
 
 /**
@@ -203,6 +341,7 @@ export const deleteCinema = async (id: string): Promise<void> => {
  * Sử dụng pattern này để dễ import: import { cinemaApi } from '@/services/apiCinema'
  */
 export const cinemaApi = {
+  // CRUD cơ bản
   getAll,
   getActive,
   getByCity,
@@ -210,4 +349,13 @@ export const cinemaApi = {
   create,
   update,
   delete: deleteCinema,
+
+  // Phim tại rạp
+  getCurrentlyShowingMovies,
+  getCinemaDetail,
+  getAllWithMovies,
+
+  // Phim kèm lịch chiếu
+  getMoviesWithShowtimes,
+  getMoviesWithShowtimesByDate,
 };

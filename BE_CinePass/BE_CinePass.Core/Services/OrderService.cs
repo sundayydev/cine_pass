@@ -50,6 +50,12 @@ public class OrderService
     }
 
 
+    public async Task<List<OrderResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        var orders = await _orderRepository.GetAllAsync(cancellationToken);
+        return orders.Select(MapToResponseDto).ToList();
+    }
+
     public async Task<OrderResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var order = await _orderRepository.GetByIdAsync(id, cancellationToken);
@@ -495,6 +501,15 @@ public class OrderService
                     SeatCode = ot.Seat.SeatCode,
                     SeatTypeCode = ot.Seat.SeatTypeCode,
                     IsActive = ot.Seat.IsActive
+                } : null,
+                ETicket = ot.ETickets.FirstOrDefault() != null ? new Shared.DTOs.ETicket.ETicketResponseDto
+                {
+                    Id = ot.ETickets.First().Id,
+                    OrderTicketId = ot.ETickets.First().OrderTicketId,
+                    TicketCode = ot.ETickets.First().TicketCode,
+                    QrData = ot.ETickets.First().QrData,
+                    IsUsed = ot.ETickets.First().IsUsed,
+                    UsedAt = ot.ETickets.First().UsedAt
                 } : null
             }).ToList(),
             Products = order.OrderProducts.Select(op => new OrderProductDetailDto

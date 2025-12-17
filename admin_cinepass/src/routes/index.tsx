@@ -34,7 +34,16 @@ import EditActorPage from '@/features/actors/EditActor';
 import ActorDetailPage from '@/features/actors/ActorDetail';
 
 // Showtime Pages
-import { ShowtimeList, CreateShowtime, EditShowtime } from '@/features/showtimes';
+import { MovieShowtime, ShowtimeSeats } from '@/features/showtimes';
+
+// Product Pages
+import ProductsListPage from '@/features/products';
+import CreateProductPage from '@/features/products/CreateProduct';
+import EditProductPage from '@/features/products/EditProduct';
+
+// Booking Pages
+import BookingsListPage from '@/features/bookings';
+import BookingDetailPage from '@/features/bookings/BookingDetail';
 
 // --- Lazy Load Pages ---
 // Auth
@@ -91,9 +100,15 @@ export const router = createBrowserRouter([
       { path: PATHS.ACTOR_EDIT, element: Loadable(EditActorPage) },
       { path: PATHS.ACTOR_DETAIL, element: Loadable(ActorDetailPage) },
       // Showtime Routes
-      { path: PATHS.SHOWTIMES, element: Loadable(ShowtimeList) },
-      { path: PATHS.SHOWTIME_CREATE, element: Loadable(CreateShowtime) },
-      { path: PATHS.SHOWTIME_EDIT, element: Loadable(EditShowtime) },
+      { path: PATHS.SHOWTIMES, element: Loadable(MovieShowtime) },
+      { path: PATHS.SHOWTIME_SEATS, element: Loadable(ShowtimeSeats) },
+      // Product Routes
+      { path: PATHS.PRODUCTS, element: Loadable(ProductsListPage) },
+      { path: PATHS.PRODUCT_CREATE, element: Loadable(CreateProductPage) },
+      { path: PATHS.PRODUCT_EDIT, element: Loadable(EditProductPage) },
+      // Booking Routes
+      { path: PATHS.BOOKINGS, element: Loadable(BookingsListPage) },
+      { path: PATHS.BOOKING_DETAIL, element: Loadable(BookingDetailPage) }
     ]
   },
 
