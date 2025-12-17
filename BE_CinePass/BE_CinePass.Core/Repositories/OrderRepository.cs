@@ -47,6 +47,7 @@ public class OrderRepository : BaseRepository<Order>, IOrderRepository
             .Include(o => o.OrderTickets)
                 .ThenInclude(ot => ot.Showtime)
                     .ThenInclude(st => st.Screen)
+                        .ThenInclude(sc => sc.Cinema)
             .Include(o => o.OrderTickets)
                 .ThenInclude(ot => ot.Seat)
             .Include(o => o.OrderTickets)
