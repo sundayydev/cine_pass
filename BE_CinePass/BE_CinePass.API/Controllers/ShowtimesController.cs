@@ -19,6 +19,25 @@ public class ShowtimesController : ControllerBase
     }
 
     /// <summary>
+    /// Lấy tất cả lịch chiếu
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(List<ShowtimeResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<ShowtimeResponseDto>>> GetAll(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var showtimes = await _showtimeService.GetAllAsync(cancellationToken);
+            return Ok(ApiResponseDto<List<ShowtimeResponseDto>>.SuccessResult(showtimes));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting all showtimes");
+            return StatusCode(500, ApiResponseDto<List<ShowtimeResponseDto>>.ErrorResult("Lỗi khi lấy danh sách lịch chiếu"));
+        }
+    }
+
+    /// <summary>
     /// Lấy danh sách lịch chiếu theo phim
     /// </summary>
     [HttpGet("movie/{movieId}")]
@@ -113,6 +132,13 @@ public class ShowtimesController : ControllerBase
                 return NotFound(ApiResponseDto<ShowtimeSeatsResponseDto>.ErrorResult($"Không tìm thấy lịch chiếu có ID {id}"));
 
             return Ok(ApiResponseDto<ShowtimeSeatsResponseDto>.SuccessResult(result));
+        }
+        catch (OperationCanceledException)
+        {
+            // Request was cancelled by the client (e.g., user navigated away)
+            // This is expected behavior, not an error
+            _logger.LogDebug("Request cancelled for showtime seats {ShowtimeId}", id);
+            return StatusCode(499, ApiResponseDto<ShowtimeSeatsResponseDto>.ErrorResult("Yêu cầu đã bị hủy"));
         }
         catch (Exception ex)
         {

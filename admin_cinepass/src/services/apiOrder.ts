@@ -51,23 +51,155 @@ export interface OrderUpdateDto {
  */
 export interface OrderResponseDto {
   id: string;
-  userId: string;
+  userId: string | null;
   totalAmount: number;
-  status: number; // OrderStatus enum
-  expiresAt: string;
+  status: string; // OrderStatus string from backend
+  paymentMethod?: string;
+  expireAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * User info
+ */
+export interface UserInfo {
+  id: string;
+  email: string;
+  phone?: string;
+  fullName?: string;
+  role: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Movie info
+ */
+export interface MovieInfo {
+  id: string;
+  title: string;
+  slug: string;
+  durationMinutes: number;
+  description?: string;
+  posterUrl?: string;
+  trailerUrl?: string;
+  releaseDate: string;
+  status: string;
+  createdAt: string;
+}
+
+/**
+ * Screen info
+ */
+export interface ScreenInfo {
+  id: string;
+  cinemaId: string;
+  name: string;
+  totalSeats: number;
+  seatMapLayout?: string;
+}
+
+/**
+ * Showtime detail
+ */
+export interface ShowtimeDetail {
+  id: string;
+  startTime: string;
+  endTime: string;
+  basePrice: number;
+  isActive: boolean;
+  movie: MovieInfo;
+  screen: ScreenInfo;
+}
+
+/**
+ * Seat info
+ */
+export interface SeatInfo {
+  id: string;
+  screenId: string;
+  seatRow: string;
+  seatNumber: number;
+  seatCode: string;
+  seatTypeCode?: string;
+  isActive: boolean;
+}
+
+/**
+ * E-Ticket info
+ */
+export interface ETicketInfo {
+  id: string;
+  orderTicketId: string;
+  ticketCode: string;
+  qrData?: string;
+  isUsed: boolean;
+  usedAt?: string;
+}
+
+/**
+ * Order Ticket Detail
+ */
+export interface OrderTicketDetail {
+  id: string;
+  showtimeId: string;
+  seatId: string;
+  price: number;
+  showtime?: ShowtimeDetail;
+  seat?: SeatInfo;
+  eTicket?: ETicketInfo;
+}
+
+/**
+ * Product info
+ */
+export interface ProductInfo {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  imageUrl?: string;
+  category: string;
+  isActive: boolean;
+}
+
+/**
+ * Order Product Detail
+ */
+export interface OrderProductDetail {
+  id: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  product?: ProductInfo;
 }
 
 /**
  * Response DTO cho chi tiết đơn hàng
  */
 export interface OrderDetailDto extends OrderResponseDto {
-  orderTickets: any[];
-  orderProducts: any[];
+  user?: UserInfo;
+  tickets: OrderTicketDetail[];
+  products: OrderProductDetail[];
 }
 
 // ==================== API FUNCTIONS ====================
+
+/**
+ * Lấy danh sách tất cả đơn hàng
+ * GET /api/orders
+ */
+export const getAll = async (): Promise<OrderResponseDto[]> => {
+  const response = (await axiosClient.get(
+    '/api/orders'
+  )) as ApiResponseDto<OrderResponseDto[]>;
+
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Lỗi khi lấy danh sách đơn hàng');
+  }
+
+  return response.data;
+};
 
 /**
  * Lấy thông tin đơn hàng theo ID
@@ -217,6 +349,7 @@ export const cancelOrder = async (id: string): Promise<void> => {
  * Object chứa tất cả các API functions cho Order
  */
 export const orderApi = {
+  getAll,
   getById,
   getDetailById,
   getByUserId,
