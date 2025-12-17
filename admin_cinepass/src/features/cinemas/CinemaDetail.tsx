@@ -1,632 +1,444 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Pencil, Trash2, Users, MapPin, Phone, Mail, Building2, Globe, Image, MapPinned, Armchair } from "lucide-react";
-import { toast } from "sonner";
+import { useNavigate, useParams } from "react-router-dom";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale"; // Để format ngày tháng tiếng Việt
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Pencil,
+  Loader2,
+  Play,
+  Star,
+  User,
+  Film,
+} from "lucide-react";
 
-// API Services
-import { cinemaApi, type CinemaResponseDto } from "@/services/apiCinema";
-import { screenApi, type ScreenResponseDto } from "@/services/apiScreen";
+// API & Types
+import { movieApi, type MovieDetailResponseDto } from "@/services/apiMovie";
 import { PATHS } from "@/config/paths";
 
-// Shadcn UI
+// Components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
+import { getYoutubeEmbedUrl } from "@/utils"; // Giả sử bạn có hàm này, nếu chưa mình sẽ cung cấp bên dưới
 
-const CinemaDetailPage = () => {
-  const { id } = useParams<{ id: string }>();
+// Helper để map category và status sang tiếng Việt
+const translateCategory = (category: string) => {
+  const map: Record<string, string> = {
+    Action: "Hành động",
+    Comedy: "Hài",
+    Drama: "Chính kịch",
+    Horror: "Kinh dị",
+    Romance: "Lãng mạn",
+    SciFi: "Viễn tưởng",
+    Animation: "Hoạt hình",
+    Adventure: "Phiêu lưu",
+    // Thêm các loại khác nếu cần
+  };
+  return map[category] || category;
+};
+
+const MovieDetailPage = () => {
   const navigate = useNavigate();
-
-  const [cinema, setCinema] = useState<CinemaResponseDto | null>(null);
-  const [screens, setScreens] = useState<ScreenResponseDto[]>([]);
+  const { slug } = useParams<{ slug: string }>();
+  const [movie, setMovie] = useState<MovieDetailResponseDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreateScreenOpen, setIsCreateScreenOpen] = useState(false);
-  const [isCreatingScreen, setIsCreatingScreen] = useState(false);
 
-  // Form state for creating screen
-  const [screenForm, setScreenForm] = useState({
-    name: "",
-    totalSeats: "",
-    seatMapLayout: "",
-  });
-  
-  // Seat map editor state
-  const [seatMapRows, setSeatMapRows] = useState(10);
-  const [seatMapCols, setSeatMapCols] = useState(15);
-  const [seatMap, setSeatMap] = useState<boolean[][]>([]);
-  const [showSeatMapEditor, setShowSeatMapEditor] = useState(false);
-
+  // --- 1. Fetch Data ---
   useEffect(() => {
-    if (id) {
-      loadData();
-    }
-  }, [id]);
-
-  const loadData = async () => {
-    if (!id) return;
-
-    try {
-      setIsLoading(true);
-      const [cinemaData, screensData] = await Promise.all([
-        cinemaApi.getById(id),
-        screenApi.getByCinemaId(id),
-      ]);
-      setCinema(cinemaData);
-      setScreens(screensData);
-    } catch (error) {
-      console.error("Error loading data:", error);
-      toast.error("Lỗi khi tải thông tin");
-      navigate(PATHS.CINEMAS);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Initialize seat map
-  const initializeSeatMap = () => {
-    const newMap: boolean[][] = Array(seatMapRows)
-      .fill(null)
-      .map(() => Array(seatMapCols).fill(false));
-    setSeatMap(newMap);
-  };
-
-  // Toggle seat in map
-  const toggleSeat = (row: number, col: number) => {
-    const newMap = seatMap.map((r, rIdx) =>
-      rIdx === row
-        ? r.map((seat, cIdx) => (cIdx === col ? !seat : seat))
-        : r
-    );
-    setSeatMap(newMap);
-    updateSeatMapLayout(newMap);
-  };
-
-  // Update seat map layout JSON
-  const updateSeatMapLayout = (map: boolean[][]) => {
-    const layout: (string | null)[][] = map.map((row, rowIdx) =>
-      row.map((hasSeat, colIdx) => {
-        if (!hasSeat) return null;
-        const rowLabel = String.fromCharCode(65 + rowIdx); // A, B, C, ...
-        return `${rowLabel}${colIdx + 1}`;
-      })
-    );
-    setScreenForm({ ...screenForm, seatMapLayout: JSON.stringify(layout) });
-  };
-
-  // Load seat map from JSON
-  const loadSeatMapFromLayout = (layoutJson: string) => {
-    try {
-      if (!layoutJson) {
-        initializeSeatMap();
+    const loadMovie = async () => {
+      if (!slug) {
+        navigate(PATHS.MOVIES);
         return;
       }
-      const layout: (string | null)[][] = JSON.parse(layoutJson);
-      const rows = layout.length;
-      const cols = layout[0]?.length || 0;
-      
-      setSeatMapRows(rows);
-      setSeatMapCols(cols);
-      
-      const newMap: boolean[][] = layout.map((row) =>
-        row.map((seat) => seat !== null)
-      );
-      setSeatMap(newMap);
-    } catch (error) {
-      console.error("Error parsing seat map layout:", error);
-      initializeSeatMap();
-    }
-  };
 
-  const handleCreateScreen = async () => {
-    if (!id) return;
+      try {
+        setIsLoading(true);
+        // Kiểm tra xem slug là UUID hay slug text
+        const isUUID =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            slug
+          );
 
-    if (!screenForm.name || !screenForm.totalSeats) {
-      toast.error("Vui lòng điền đầy đủ thông tin");
-      return;
-    }
+        let movieData: MovieDetailResponseDto;
+        if (isUUID) {
+          movieData = await movieApi.getById(slug);
+        } else {
+          movieData = await movieApi.getBySlug(slug);
+        }
 
-    try {
-      setIsCreatingScreen(true);
-      await screenApi.create({
-        cinemaId: id,
-        name: screenForm.name,
-        totalSeats: parseInt(screenForm.totalSeats),
-        seatMapLayout: screenForm.seatMapLayout || undefined,
-      });
-      toast.success("Tạo phòng chiếu thành công");
-      setIsCreateScreenOpen(false);
-      setScreenForm({ name: "", totalSeats: "", seatMapLayout: "" });
-      setShowSeatMapEditor(false);
-      setSeatMap([]);
-      loadData();
-    } catch (error) {
-      console.error("Error creating screen:", error);
-      toast.error(error instanceof Error ? error.message : "Lỗi khi tạo phòng chiếu");
-    } finally {
-      setIsCreatingScreen(false);
-    }
-  };
+        setMovie(movieData);
+      } catch (error: any) {
+        console.error("Load Movie Error:", error);
+        toast.error("Không thể tải thông tin phim.");
+        navigate(PATHS.MOVIES);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const handleDeleteScreen = async (screenId: string, screenName: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa phòng "${screenName}"?`)) {
-      return;
-    }
+    loadMovie();
+  }, [slug, navigate]);
 
-    try {
-      await screenApi.delete(screenId);
-      toast.success("Xóa phòng chiếu thành công");
-      loadData();
-    } catch (error) {
-      console.error("Error deleting screen:", error);
-      toast.error(error instanceof Error ? error.message : "Lỗi khi xóa phòng chiếu");
-    }
-  };
-
-  const formatDate = (dateString: string) => {
+  // --- 2. Render Helpers ---
+  const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("vi-VN");
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy", { locale: vi });
+    } catch {
+      return dateString;
+    }
   };
 
+  const renderStatusBadge = (status: string) => {
+    const s = status?.toLowerCase();
+    if (s === "showing" || s === "nowshowing") {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+          Đang chiếu
+        </span>
+      );
+    }
+    if (s === "comingsoon") {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
+          Sắp chiếu
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-600">
+        Đã kết thúc
+      </span>
+    );
+  };
+
+  const renderStars = (rating: number = 0) => {
+    return (
+      <div className="flex text-yellow-400 text-xs">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`w-4 h-4 ${star <= rating ? "fill-yellow-400" : "text-gray-300"
+              }`}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  // --- 3. Loading & Empty States ---
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Spinner />
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
       </div>
     );
   }
 
-  if (!cinema) {
-    return null;
-  }
+  if (!movie) return null;
 
+  // --- 4. Main Render ---
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(PATHS.CINEMAS)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">{cinema.name}</h1>
-          <p className="text-muted-foreground mt-1">Chi tiết rạp chiếu phim và quản lý phòng chiếu</p>
+    <div className="flex-1 overflow-y-auto p-6 lg:p-10 bg-slate-50 dark:bg-[#0f172a] min-h-screen text-slate-800 dark:text-slate-200">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 h-10 w-10 shadow-sm"
+              onClick={() => navigate(PATHS.MOVIES)}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                Chi tiết Phim
+              </h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Thông tin chi tiết về phim
+              </p>
+            </div>
+          </div>
+          <Button
+            className="bg-[#1e293b] hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-md transition-colors text-sm font-medium"
+            onClick={() => navigate(PATHS.MOVIE_EDIT.replace(":id", movie.id))}
+          >
+            <Pencil className="h-4 w-4" />
+            Chỉnh sửa
+          </Button>
         </div>
-        <Button onClick={() => navigate(`/cinemas/edit/${cinema.id}`)}>
-          <Pencil className="mr-2 h-4 w-4" />
-          Chỉnh Sửa
-        </Button>
-      </div>
 
-      {/* Cinema Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Thông Tin Rạp Chiếu Phim</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {cinema.description && (
-              <div>
-                <p className="text-sm font-medium mb-1">Mô Tả</p>
-                <p className="text-sm text-muted-foreground">{cinema.description}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Poster */}
+          <div className="lg:col-span-4 xl:col-span-3">
+            <div className="bg-white dark:bg-[#1e293b] p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm h-full">
+              <div className="relative w-full h-full min-h-[400px] rounded-lg overflow-hidden group bg-slate-100">
+                <img
+                  src={movie.posterUrl || "/placeholder.svg"}
+                  alt={movie.title}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      "https://placehold.co/400x600/e2e8f0/64748b?text=No+Poster";
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
-            )}
-            {cinema.address && (
-              <div className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Địa Chỉ</p>
-                  <p className="text-sm text-muted-foreground">{cinema.address}</p>
+            </div>
+          </div>
+
+          {/* Right Column: Details */}
+          <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+            {/* Main Info Card */}
+            <div className="bg-white dark:bg-[#1e293b] rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 lg:p-8">
+              <div className="mb-6">
+                <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 leading-tight">
+                  {movie.title}
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {renderStatusBadge(movie.status)}
+
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
+                    {translateCategory(movie.category)}
+                  </span>
+
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-800">
+                    {movie.ageLimit ? `${movie.ageLimit}+` : "Mọi lứa tuổi"}
+                  </span>
                 </div>
               </div>
-            )}
-            {cinema.city && (
-              <div className="flex items-start gap-3">
-                <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Thành Phố</p>
-                  <p className="text-sm text-muted-foreground">{cinema.city}</p>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-400 dark:text-slate-500">
+                    <Clock className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
+                      Thời lượng
+                    </p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-white">
+                      {movie.durationMinutes} phút
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-slate-400 dark:text-slate-500">
+                    <Calendar className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">
+                      Ngày khởi chiếu
+                    </p>
+                    <p className="text-lg font-semibold text-slate-900 dark:text-white">
+                      {formatDate(movie.releaseDate)}
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
-            {(cinema.latitude !== null && cinema.latitude !== undefined) || (cinema.longitude !== null && cinema.longitude !== undefined) ? (
-              <div className="flex items-start gap-3">
-                <MapPinned className="h-5 w-5 text-muted-foreground mt-0.5" />
+
+              {/* Description */}
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mb-8">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-3">
+                  Mô tả nội dung
+                </h3>
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-sm whitespace-pre-line">
+                  {movie.description || "Chưa có mô tả cho phim này."}
+                </p>
+              </div>
+
+              {/* Technical Metadata */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12 border-t border-slate-100 dark:border-slate-800 pt-6">
                 <div>
-                  <p className="text-sm font-medium">Tọa Độ</p>
-                  <p className="text-sm text-muted-foreground">
-                    {cinema.latitude !== null && cinema.latitude !== undefined && cinema.longitude !== null && cinema.longitude !== undefined
-                      ? `${cinema.latitude}, ${cinema.longitude}`
-                      : cinema.latitude !== null && cinema.latitude !== undefined
-                      ? `Lat: ${cinema.latitude}`
-                      : `Lng: ${cinema.longitude}`}
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+                    ID
+                  </p>
+                  <p
+                    className="font-mono text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 p-2 rounded border border-slate-100 dark:border-slate-700 truncate"
+                    title={movie.id}
+                  >
+                    {movie.id}
                   </p>
                 </div>
-              </div>
-            ) : null}
-            {cinema.phone && (
-              <div className="flex items-start gap-3">
-                <Phone className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Số Điện Thoại</p>
-                  <p className="text-sm text-muted-foreground">{cinema.phone}</p>
-                </div>
-              </div>
-            )}
-            {cinema.email && (
-              <div className="flex items-start gap-3">
-                <Mail className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Email</p>
-                  <p className="text-sm text-muted-foreground">{cinema.email}</p>
-                </div>
-              </div>
-            )}
-            {cinema.website && (
-              <div className="flex items-start gap-3">
-                <Globe className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">Website</p>
-                  <a 
-                    href={cinema.website} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline"
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+                    Slug
+                  </p>
+                  <p
+                    className="font-mono text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 p-2 rounded border border-slate-100 dark:border-slate-700 truncate"
+                    title={movie.slug}
                   >
-                    {cinema.website}
-                  </a>
+                    {movie.slug || "N/A"}
+                  </p>
                 </div>
-              </div>
-            )}
-            {cinema.bannerUrl && (
-              <div className="flex items-start gap-3">
-                <Image className="h-5 w-5 text-muted-foreground mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium">Banner</p>
-                  <a 
-                    href={cinema.bannerUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Xem hình ảnh
-                  </a>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+                    Ngày tạo
+                  </p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    {formatDate(movie.createdAt)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">
+                    Trạng thái hệ thống
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="h-2.5 w-2.5 rounded-full bg-green-500"></div>
+                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                      Active
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
-            {cinema.facilities && cinema.facilities.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-2">Tiện Ích</p>
-                <div className="flex flex-wrap gap-2">
-                  {cinema.facilities.map((facility, index) => (
-                    <Badge key={index} variant="secondary">
-                      {facility}
-                    </Badge>
+            </div>
+
+            {/* Actors Section */}
+            {movie.actors && movie.actors.length > 0 && (
+              <div className="bg-white dark:bg-[#1e293b] rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 lg:p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Diễn viên
+                  </h3>
+                  {/* <a href="#" className="text-sm font-medium text-indigo-600 ...">Xem tất cả</a> */}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                  {movie.actors.map((actor) => (
+                    <div key={actor.id} className="text-center group">
+                      <div className="relative w-24 h-24 mx-auto mb-3 rounded-full overflow-hidden ring-2 ring-transparent group-hover:ring-indigo-500 transition-all bg-slate-100">
+                        <img
+                          src={actor.imageUrl || "https://placehold.co/100"}
+                          alt={actor.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              "https://placehold.co/100?text=Actor";
+                          }}
+                        />
+                      </div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors line-clamp-1">
+                        {actor.name}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+                        {actor.description || "Diễn viên"}
+                      </p>
+                    </div>
                   ))}
                 </div>
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium">Trạng Thái:</p>
-              {cinema.isActive ? (
-                <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/25 border-emerald-500/30">
-                  Đang hoạt động
-                </Badge>
-              ) : (
-                <Badge variant="outline">Ngừng hoạt động</Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Thống Kê</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Slug</p>
-              <p className="text-sm font-mono">{cinema.slug || "-"}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Tổng số phòng chiếu</p>
-              <p className="text-2xl font-bold">{cinema.totalScreens ?? screens.length}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Số phòng đã tạo</p>
-              <p className="text-2xl font-bold">{screens.length}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Tổng sức chứa</p>
-              <p className="text-2xl font-bold">
-                {screens.reduce((sum, screen) => sum + screen.totalSeats, 0)}
-              </p>
-            </div>
-            {cinema.createdAt && (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Ngày tạo</p>
-                <p className="text-sm">{formatDate(cinema.createdAt)}</p>
-              </div>
-            )}
-            {cinema.updatedAt && (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Ngày cập nhật</p>
-                <p className="text-sm">{formatDate(cinema.updatedAt)}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Screens Management */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Phòng Chiếu</CardTitle>
-              <CardDescription>Quản lý các phòng chiếu trong rạp</CardDescription>
-            </div>
-            <Button onClick={() => setIsCreateScreenOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Thêm Phòng
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {screens.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Users className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">Chưa có phòng chiếu nào</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tên Phòng</TableHead>
-                  <TableHead>Sức Chứa</TableHead>
-                  <TableHead>Bản Đồ Ghế</TableHead>
-                  <TableHead>Ngày Cập Nhật</TableHead>
-                  <TableHead>Ngày Tạo</TableHead>
-                  <TableHead className="text-center w-1/8">Thao Tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {screens.map((screen) => (
-                  <TableRow key={screen.id}>
-                    <TableCell className="font-medium">{screen.name}</TableCell>
-                    <TableCell>{screen.totalSeats}</TableCell>
-                    <TableCell>{screen.seatMapLayout || "-"}</TableCell>
-                    <TableCell>{screen.updatedAt ? formatDate(screen.updatedAt) : "-"}</TableCell>
-                    <TableCell>{screen.createdAt ? formatDate(screen.createdAt) : "-"}</TableCell>
-                    <TableCell className="w-1/8">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => navigate(`/cinemas/${id}/screens/${screen.id}/seats`)}
-                        >
-                          <Armchair className="h-4 w-4 text-green-500 hover:text-green-900" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteScreen(screen.id, screen.name)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Create Screen Form */}
-      {isCreateScreenOpen && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Thêm Phòng Chiếu Mới</CardTitle>
-            <CardDescription>Điền thông tin để tạo phòng chiếu mới trong rạp này</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Tên Phòng *</Label>
-                <Input
-                  id="name"
-                  placeholder="Ví dụ: Phòng 1"
-                  value={screenForm.name}
-                  onChange={(e) => setScreenForm({ ...screenForm, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="totalSeats">Sức Chứa *</Label>
-                <Input
-                  id="totalSeats"
-                  type="number"
-                  placeholder="Ví dụ: 100"
-                  value={screenForm.totalSeats}
-                  onChange={(e) => setScreenForm({ ...screenForm, totalSeats: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="seatMapLayout">Bản Đồ Ghế</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (showSeatMapEditor) {
-                        loadSeatMapFromLayout(screenForm.seatMapLayout);
-                      } else {
-                        if (screenForm.seatMapLayout) {
-                          loadSeatMapFromLayout(screenForm.seatMapLayout);
-                        } else {
-                          initializeSeatMap();
-                        }
-                      }
-                      setShowSeatMapEditor(!showSeatMapEditor);
-                    }}
-                  >
-                    {showSeatMapEditor ? "Ẩn Bản Đồ" : "Hiện Bản Đồ"}
-                  </Button>
-                </div>
-                
-                {showSeatMapEditor ? (
-                  <div className="space-y-4 border rounded-lg p-4">
-                    {/* Controls */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="rows">Số Hàng</Label>
-                        <Input
-                          id="rows"
-                          type="number"
-                          min="1"
-                          max="26"
-                          value={seatMapRows}
-                          onChange={(e) => {
-                            const rows = parseInt(e.target.value) || 1;
-                            setSeatMapRows(rows);
-                            const newMap: boolean[][] = Array(rows)
-                              .fill(null)
-                              .map(() => Array(seatMapCols).fill(false));
-                            setSeatMap(newMap);
-                            updateSeatMapLayout(newMap);
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cols">Số Cột</Label>
-                        <Input
-                          id="cols"
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={seatMapCols}
-                          onChange={(e) => {
-                            const cols = parseInt(e.target.value) || 1;
-                            setSeatMapCols(cols);
-                            const newMap: boolean[][] = Array(seatMapRows)
-                              .fill(null)
-                              .map(() => Array(cols).fill(false));
-                            setSeatMap(newMap);
-                            updateSeatMapLayout(newMap);
-                          }}
-                        />
-                      </div>
+            {/* Trailer Section */}
+            {movie.trailerUrl && (
+              <div className="bg-white dark:bg-[#1e293b] rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 lg:p-8">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                  Trailer
+                </h3>
+                <div className="relative w-full rounded-lg overflow-hidden bg-black aspect-video group">
+                  {getYoutubeEmbedUrl(movie.trailerUrl) ? (
+                    <iframe
+                      src={getYoutubeEmbedUrl(movie.trailerUrl)!}
+                      title={`Trailer ${movie.title}`}
+                      className="absolute inset-0 h-full w-full"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <a
+                        href={movie.trailerUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex flex-col items-center gap-2 group cursor-pointer"
+                      >
+                        <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-red-600 transition-colors duration-300">
+                          <Play className="text-white h-8 w-8 ml-1" />
+                        </div>
+                        <span className="text-white text-sm font-medium">
+                          Mở link gốc
+                        </span>
+                      </a>
                     </div>
+                  )}
+                </div>
+              </div>
+            )}
 
-                    {/* Seat Map Grid */}
-                    <div className="space-y-2">
-                      <Label>Bấm vào ô để thêm/xóa ghế</Label>
-                      <div className="border rounded-lg p-4 bg-muted/30 overflow-auto max-h-[400px]">
-                        {/* Screen indicator */}
-                        <div className="text-center py-2 bg-muted rounded-lg mb-4">
-                          <p className="text-sm font-medium">Màn hình</p>
-                        </div>
-                        
-                        {/* Seat grid */}
-                        <div className="space-y-1">
-                          {/* Column headers */}
-                          <div className="flex gap-1 mb-2">
-                            <div className="w-8"></div>
-                            {Array.from({ length: seatMapCols }, (_, i) => (
-                              <div
-                                key={i}
-                                className="w-8 h-8 flex items-center justify-center text-xs font-semibold"
-                              >
-                                {i + 1}
-                              </div>
-                            ))}
-                          </div>
-                          
-                          {/* Rows */}
-                          {seatMap.map((row, rowIdx) => (
-                            <div key={rowIdx} className="flex items-center gap-1">
-                              <div className="w-8 h-8 flex items-center justify-center text-sm font-semibold">
-                                {String.fromCharCode(65 + rowIdx)}
-                              </div>
-                              {row.map((hasSeat, colIdx) => (
-                                <button
-                                  key={colIdx}
-                                  type="button"
-                                  onClick={() => toggleSeat(rowIdx, colIdx)}
-                                  className={`w-8 h-8 rounded border-2 transition-all ${
-                                    hasSeat
-                                      ? "bg-emerald-500 border-emerald-600 hover:bg-emerald-600"
-                                      : "bg-gray-200 border-gray-300 hover:bg-gray-300"
-                                  }`}
-                                  title={`${String.fromCharCode(65 + rowIdx)}${colIdx + 1}`}
-                                />
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Legend */}
-                      <div className="flex gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded border-2 bg-emerald-500 border-emerald-600"></div>
-                          <span>Có ghế</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded border-2 bg-gray-200 border-gray-300"></div>
-                          <span>Không có ghế</span>
-                        </div>
-                      </div>
+            {/* Reviews Section */}
+            <div className="bg-white dark:bg-[#1e293b] rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 lg:p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Đánh giá từ người xem
+                </h3>
+                {movie.reviews && movie.reviews.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-bold text-yellow-500">
+                      {(
+                        movie.reviews.reduce(
+                          (acc, cur) => acc + (cur.rating || 0),
+                          0
+                        ) / movie.reviews.length
+                      ).toFixed(1)}
+                    </span>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      <div className="flex text-yellow-500 text-sm">★★★★★</div>
+                      <span>({movie.reviews.length} đánh giá)</span>
                     </div>
                   </div>
-                ) : (
-                  <Textarea
-                    id="seatMapLayout"
-                    placeholder="JSON layout hoặc bấm 'Hiện Bản Đồ' để vẽ trực quan..."
-                    value={screenForm.seatMapLayout}
-                    onChange={(e) => setScreenForm({ ...screenForm, seatMapLayout: e.target.value })}
-                    className="font-mono text-xs"
-                    rows={4}
-                  />
                 )}
               </div>
-              <div className="flex items-center justify-end gap-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setIsCreateScreenOpen(false);
-                    setScreenForm({ name: "", totalSeats: "", seatMapLayout: "" });
-                    setShowSeatMapEditor(false);
-                    setSeatMap([]);
-                  }}
-                  disabled={isCreatingScreen}
-                >
-                  Hủy
-                </Button>
-                <Button onClick={handleCreateScreen} disabled={isCreatingScreen}>
-                  {isCreatingScreen && <Spinner className="mr-2 h-4 w-4" />}
-                  Tạo Phòng
-                </Button>
+
+              <div className="space-y-6">
+                {movie.reviews && movie.reviews.length > 0 ? (
+                  movie.reviews.slice(0, 3).map((review) => (
+                    <div
+                      key={review.id}
+                      className="flex gap-4 pb-6 border-b border-slate-100 dark:border-slate-800 last:pb-0 last:border-0"
+                    >
+                      <div className="w-10 h-10 rounded-full border border-slate-200 dark:border-slate-600 flex items-center justify-center bg-slate-100 dark:bg-slate-700 text-slate-500">
+                        <User className="h-6 w-6" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start mb-1">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                              {review.userName || "Người dùng ẩn danh"}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {formatDate(review.createdAt)}
+                            </p>
+                          </div>
+                          {renderStars(review.rating)}
+                        </div>
+                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                          {review.comment}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-500 text-center italic">
+                    Chưa có đánh giá nào.
+                  </p>
+                )}
               </div>
+              {movie.reviews && movie.reviews.length > 3 && (
+                <button className="w-full mt-6 py-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
+                  Xem thêm đánh giá
+                </button>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default CinemaDetailPage;
-
+export default MovieDetailPage;

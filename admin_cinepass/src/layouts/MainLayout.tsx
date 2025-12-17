@@ -1,16 +1,20 @@
 import { useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Film, 
-  Tv, 
-  CalendarDays, 
-  Ticket, 
-  Users, 
-  Menu, 
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  Film,
+  Tv,
+  CalendarDays,
+  Ticket,
+  Users,
+  Menu,
   LogOut,
   Settings,
-  Armchair
+  Armchair,
+  Activity,
+  User2,
+  UserCircle,
+  UserPlus,
 } from 'lucide-react';
 
 // Shadcn Components
@@ -35,6 +39,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, path: PATHS.DASHBOARD },
   { label: 'Phim', icon: Film, path: PATHS.MOVIES },
   { label: 'Loại Ghế', icon: Armchair, path: PATHS.SEAT_TYPES },
+  { label: 'Quản lý diễn viên', icon: UserPlus, path: PATHS.ACTORS },
   { label: 'Rạp & Phòng', icon: Tv, path: PATHS.CINEMAS }, // Icon Tv đại diện cho màn hình chiếu
   { label: 'Lịch Chiếu', icon: CalendarDays, path: PATHS.SHOWTIMES },
   { label: 'Vé Đặt', icon: Ticket, path: PATHS.BOOKINGS },
@@ -43,6 +48,7 @@ const NAV_ITEMS = [
 
 const MainLayout = () => {
   const { logout } = useAuth();
+  const navigate = useNavigate();
   // State để đóng mở Sheet trên mobile (nếu cần control thủ công)
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -73,10 +79,9 @@ const MainLayout = () => {
               to={item.path}
               onClick={() => setIsMobileOpen(false)} // Đóng menu mobile khi click
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${
-                  isActive
-                    ? 'bg-muted text-primary'
-                    : 'text-muted-foreground'
+                `flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${isActive
+                  ? 'bg-muted text-primary'
+                  : 'text-muted-foreground'
                 }`
               }
             >
@@ -91,7 +96,7 @@ const MainLayout = () => {
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-      
+
       {/* 3. Sidebar cho Desktop (Ẩn trên mobile) */}
       <div className="hidden border-r bg-muted/40 md:block">
         <SidebarContent />
@@ -101,7 +106,7 @@ const MainLayout = () => {
       <div className="flex flex-col">
         {/* Header */}
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          
+
           {/* Nút Menu Mobile (Hiện trên mobile) */}
           <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
             <SheetTrigger asChild>
@@ -115,7 +120,7 @@ const MainLayout = () => {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col p-0 w-[240px]">
-               <SidebarContent />
+              <SidebarContent />
             </SheetContent>
           </Sheet>
 
@@ -129,8 +134,8 @@ const MainLayout = () => {
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar>
-                <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="Admin Avatar" />
-                    <AvatarFallback>AD</AvatarFallback>
+                  <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="Admin Avatar" />
+                  <AvatarFallback>AD</AvatarFallback>
                 </Avatar>
                 <span className="sr-only">Toggle user menu</span>
               </Button>
@@ -144,7 +149,7 @@ const MainLayout = () => {
               <DropdownMenuItem>Hỗ trợ</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
-                 <LogOut className="mr-2 h-4 w-4" /> Đăng xuất
+                <LogOut className="mr-2 h-4 w-4" /> Đăng xuất
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

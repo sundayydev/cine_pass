@@ -10,12 +10,11 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, ArrowLeft, Save } from "lucide-react";
+import { CalendarIcon, Loader2, ArrowLeft, Save, Upload, X, ImageIcon } from "lucide-react";
 
 // API & Config
 import { movieApi } from "@/services/apiMovie"; // Đường dẫn tới file api bạn vừa cung cấp
 import { PATHS } from "@/config/paths";
-import type { MoviePayload, MovieCategory } from "@/types/moveType";
 import { MOVIE_CATEGORIES } from "@/constants/movieCategory";
 
 // Shadcn UI Components
@@ -54,6 +53,7 @@ const formSchema = z.object({
   durationMinutes: z.coerce.number().min(1, "Thời lượng phải lớn hơn 0"),
   description: z.string().optional(),
   trailerUrl: z.string().url().optional().or(z.literal("")),
+  posterUrl: z.string().url().optional().or(z.literal("")),
   releaseDate: z.date(),
   status: z.enum(["COMING_SOON", "NOW_SHOWING", "ENDED", "CANCELLED"]),
   category: z.enum([
@@ -80,7 +80,6 @@ const formSchema = z.object({
     "RELIGIOUS",
     "OTHER",
   ]),
-  //Todo: Upload poster
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -88,6 +87,7 @@ type FormValues = z.infer<typeof formSchema>;
 const CreateMoviePage = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [posterFile, setPosterFile] = useState<File | null>(null);
 
   // 2. Setup Form
   const form = useForm<FormValues>({
@@ -97,6 +97,7 @@ const CreateMoviePage = () => {
       durationMinutes: 0,
       description: "",
       trailerUrl: "",
+      posterUrl: "",
       status: "COMING_SOON",
       category: "MOVIE",
       releaseDate: new Date(),
@@ -106,9 +107,10 @@ const CreateMoviePage = () => {
   // 3. Xử lý Submit
   const onSubmit = async (values: FormValues) => {
     setIsLoading(true);
+    let createdMovieId: string | null = null;
+
     try {
       // Format date thành YYYY-MM-DD cho PostgreSQL date type
-      // PostgreSQL date type chỉ cần format YYYY-MM-DD, không cần time và timezone
       const formatDateForPostgres = (date: Date): string => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -116,36 +118,107 @@ const CreateMoviePage = () => {
         return `${year}-${month}-${day}`;
       };
 
-      // Chuẩn bị payload đúng chuẩn Interface MoviePayload
-      const payload: MoviePayload = {
+      // Map string status to numeric enum
+      const mapStatusToNumber = (status: string): number => {
+        const statusMap: Record<string, number> = {
+          COMING_SOON: 0,
+          NOW_SHOWING: 1,
+          ENDED: 2,
+          CANCELLED: 2,
+        };
+        return statusMap[status] ?? 0;
+      };
+
+      // Map string category to numeric enum
+      const mapCategoryToNumber = (category: string): number => {
+        const categoryMap: Record<string, number> = {
+          MOVIE: 0,
+          SERIES: 1,
+          DOCUMENTARY: 2,
+          ANIMATION: 3,
+          ACTION: 4,
+          COMEDY: 5,
+          DRAMA: 6,
+          HORROR: 7,
+          ROMANCE: 8,
+          SCIFI: 9,
+          THRILLER: 10,
+          WAR: 11,
+          WESTERN: 12,
+          MUSICAL: 13,
+          FAMILY: 14,
+          FANTASY: 15,
+          ADVENTURE: 16,
+          BIOGRAPHY: 17,
+          HISTORY: 18,
+          SPORT: 19,
+          RELIGIOUS: 20,
+          OTHER: 21,
+        };
+        return categoryMap[category] ?? 0;
+      };
+
+      // BƯỚC 1: Tạo phim TRƯỚC (không có posterUrl)
+      toast.info("Đang tạo phim...");
+      const createPayload = {
         title: values.title,
         durationMinutes: values.durationMinutes,
         description: values.description,
         trailerUrl: values.trailerUrl || undefined,
-        releaseDate: formatDateForPostgres(values.releaseDate), // Format YYYY-MM-DD cho PostgreSQL
-        category: values.category as MovieCategory,
-        status: values.status,
-        // posterFile: ... (Chờ backend hỗ trợ upload)
+        // Không gửi posterUrl ở bước này
+        releaseDate: formatDateForPostgres(values.releaseDate),
+        category: mapCategoryToNumber(values.category),
+        status: mapStatusToNumber(values.status),
       };
 
-      console.log("Submitting Payload:", payload);
+      console.log("Creating movie with payload:", createPayload);
+      const createdMovie = await movieApi.create(createPayload);
+      createdMovieId = createdMovie.id;
 
-      // Gọi API từ file bạn cung cấp
-      await movieApi.create(payload);
+      console.log("Movie created with ID:", createdMovieId);
+
+      // BƯỚC 2: Upload poster với movieId (nếu có)
+      if (posterFile && createdMovieId) {
+        toast.info("Đang upload poster...");
+
+        const { uploadApi } = await import("@/services/apiUpload");
+        const uploadResult = await uploadApi.uploadEntityImage(
+          posterFile,
+          "movie",
+          createdMovieId
+        );
+
+        console.log("Poster uploaded:", uploadResult.secureUrl);
+
+        // BƯỚC 3: Cập nhật posterUrl cho phim
+        toast.info("Đang cập nhật poster...");
+        await movieApi.update(createdMovieId, {
+          posterUrl: uploadResult.secureUrl,
+        });
+
+        console.log("Movie updated with posterUrl");
+      }
 
       toast.success("Đã tạo phim mới thành công!", {});
-
-      // Quay về trang danh sách
       navigate(PATHS.MOVIES);
     } catch (error: any) {
       console.error("Create Error:", error);
 
-      // Lấy thông báo lỗi chi tiết từ backend
+      // Nếu đã tạo phim nhưng lỗi upload/update, thông báo cho user
+      if (createdMovieId) {
+        toast.warning(
+          "Phim đã được tạo nhưng có lỗi khi upload poster. Bạn có thể chỉnh sửa phim để thêm poster sau.",
+          { duration: 7000 }
+        );
+        navigate(PATHS.MOVIES);
+        return;
+      }
+
+      // Lỗi khi tạo phim
       let errorMessage = "Không thể tạo phim. Vui lòng thử lại.";
 
       if (error.response?.data) {
         const responseData = error.response.data;
-        // Backend trả về format: { success: false, message: "...", errors: [...] }
         if (responseData.message) {
           errorMessage = responseData.message;
         }
@@ -154,7 +227,6 @@ const CreateMoviePage = () => {
           Array.isArray(responseData.errors) &&
           responseData.errors.length > 0
         ) {
-          // Nếu có danh sách lỗi validation, hiển thị tất cả
           const errorsList = responseData.errors.join(", ");
           errorMessage = `${errorMessage} ${errorsList}`;
         }
@@ -399,17 +471,129 @@ const CreateMoviePage = () => {
                     )}
                   />
 
-                  {/* Poster Placeholder */}
-                  <div className="rounded-md border border-dashed p-4 text-center bg-muted/20">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Poster Phim
-                    </p>
-                    <div className="flex items-center justify-center h-32 bg-muted rounded">
-                      <span className="text-xs text-gray-500">
-                        Chức năng upload đang phát triển
-                      </span>
-                    </div>
-                  </div>
+                  {/* Poster Upload - Save file for later upload */}
+                  <FormField
+                    control={form.control as unknown as Control<FormValues>}
+                    name="posterUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Poster Phim</FormLabel>
+                        <FormControl>
+                          <div className="space-y-2">
+                            <div
+                              className={cn(
+                                "relative rounded-lg border-2 border-dashed transition-colors",
+                                posterFile
+                                  ? "border-solid"
+                                  : "border-muted-foreground/25"
+                              )}
+                            >
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    // Validate file
+                                    const maxSizeMB = 10;
+                                    const maxBytes = maxSizeMB * 1024 * 1024;
+                                    if (file.size > maxBytes) {
+                                      toast.error(
+                                        `Kích thước file không được vượt quá ${maxSizeMB}MB`
+                                      );
+                                      return;
+                                    }
+
+                                    const allowedTypes = [
+                                      "image/jpeg",
+                                      "image/jpg",
+                                      "image/png",
+                                      "image/gif",
+                                      "image/webp",
+                                    ];
+                                    if (!allowedTypes.includes(file.type)) {
+                                      toast.error(
+                                        "Chỉ chấp nhận các định dạng: JPG, PNG, GIF, WEBP"
+                                      );
+                                      return;
+                                    }
+
+                                    // Save file for later upload
+                                    setPosterFile(file);
+
+                                    // Create preview
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      field.onChange(reader.result as string);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden"
+                                id="poster-upload"
+                              />
+
+                              {posterFile ? (
+                                <div className="relative group">
+                                  <img
+                                    src={field.value}
+                                    alt="Preview"
+                                    className="w-full h-auto rounded-lg object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => {
+                                        document
+                                          .getElementById("poster-upload")
+                                          ?.click();
+                                      }}
+                                    >
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Thay đổi
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => {
+                                        setPosterFile(null);
+                                        field.onChange("");
+                                      }}
+                                    >
+                                      <X className="h-4 w-4 mr-2" />
+                                      Xóa
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <label
+                                  htmlFor="poster-upload"
+                                  className="w-full p-8 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors rounded-lg cursor-pointer"
+                                >
+                                  <ImageIcon className="h-12 w-12" />
+                                  <div className="text-center">
+                                    <p className="text-sm font-medium">
+                                      Click để chọn ảnh
+                                    </p>
+                                    <p className="text-xs mt-1">
+                                      PNG, JPG, GIF, WEBP (tối đa 10MB)
+                                    </p>
+                                  </div>
+                                </label>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Ảnh poster sẽ được upload sau khi tạo phim
+                            </p>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </Card>
             </div>

@@ -10,10 +10,10 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, ArrowLeft, Save } from "lucide-react";
+import { CalendarIcon, Loader2, ArrowLeft, Save, Upload, X, ImageIcon } from "lucide-react";
 
 // API & Config
-import { movieApi } from "@/services/apiMovie";
+import { movieApi, type MovieUpdateDto, MovieStatus, MovieCategory as MovieCategoryEnum } from "@/services/apiMovie";
 import { PATHS } from "@/config/paths";
 import type { MoviePayload, MovieCategory } from "@/types/moveType";
 import { MOVIE_CATEGORIES } from "@/constants/movieCategory";
@@ -48,12 +48,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+// Custom Components
+import { MovieActorManager } from "@/components/movies/MovieActorManager";
+
 // 1. Định nghĩa Schema Validation (Zod)
 const formSchema = z.object({
   title: z.string().min(1, "Tên phim không được để trống"),
   durationMinutes: z.coerce.number().min(1, "Thời lượng phải lớn hơn 0"),
   description: z.string().optional(),
   trailerUrl: z.string().url().optional().or(z.literal("")),
+  posterUrl: z.string().url().optional().or(z.literal("")),
   releaseDate: z.date(),
   status: z.enum(["COMING_SOON", "NOW_SHOWING", "ENDED", "CANCELLED"]),
   category: z.enum([
@@ -89,6 +93,8 @@ const EditMoviePage = () => {
   const { id } = useParams<{ id: string }>();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMovie, setIsLoadingMovie] = useState(true);
+  const [posterFile, setPosterFile] = useState<File | null>(null);
+  const [currentPosterUrl, setCurrentPosterUrl] = useState<string>("");
 
   // 2. Setup Form
   const form = useForm<FormValues>({
@@ -98,6 +104,7 @@ const EditMoviePage = () => {
       durationMinutes: 0,
       description: "",
       trailerUrl: "",
+      posterUrl: "",
       status: "COMING_SOON",
       category: "MOVIE",
       releaseDate: new Date(),
@@ -123,14 +130,59 @@ const EditMoviePage = () => {
           releaseDate = new Date(movie.releaseDate);
         }
 
+        // Map backend status (PascalCase) to form status (UPPERCASE)
+        const mapBackendStatusToForm = (status: string): FormValues['status'] => {
+          const statusMap: Record<string, FormValues['status']> = {
+            'ComingSoon': 'COMING_SOON',
+            'Showing': 'NOW_SHOWING',
+            'Ended': 'ENDED',
+          };
+          return statusMap[status] || 'COMING_SOON';
+        };
+
+        // Map backend category (PascalCase) to form category (UPPERCASE)
+        const mapBackendCategoryToForm = (category: string): FormValues['category'] => {
+          const categoryMap: Record<string, FormValues['category']> = {
+            'Movie': 'MOVIE',
+            'Series': 'SERIES',
+            'Documentary': 'DOCUMENTARY',
+            'Animation': 'ANIMATION',
+            'Action': 'ACTION',
+            'Comedy': 'COMEDY',
+            'Drama': 'DRAMA',
+            'Horror': 'HORROR',
+            'Romance': 'ROMANCE',
+            'SciFi': 'SCIFI',
+            'Thriller': 'THRILLER',
+            'War': 'WAR',
+            'Western': 'WESTERN',
+            'Musical': 'MUSICAL',
+            'Family': 'FAMILY',
+            'Fantasy': 'FANTASY',
+            'Adventure': 'ADVENTURE',
+            'Biography': 'BIOGRAPHY',
+            'History': 'HISTORY',
+            'Sport': 'SPORT',
+            'Religious': 'RELIGIOUS',
+            'Other': 'OTHER',
+          };
+          return categoryMap[category] || 'MOVIE';
+        };
+
+        // Save current posterUrl for display
+        if (movie.posterUrl) {
+          setCurrentPosterUrl(movie.posterUrl);
+        }
+
         // Set form values
         form.reset({
           title: movie.title || "",
           durationMinutes: movie.durationMinutes || 0,
           description: movie.description || "",
           trailerUrl: movie.trailerUrl || "",
-          status: movie.status || "COMING_SOON",
-          category: movie.category as MovieCategory || "MOVIE",
+          posterUrl: movie.posterUrl || "",
+          status: mapBackendStatusToForm(movie.status),
+          category: mapBackendCategoryToForm(movie.category),
           releaseDate: releaseDate,
         } as FormValues);
       } catch (error: any) {
@@ -175,21 +227,83 @@ const EditMoviePage = () => {
         return `${year}-${month}-${day}`;
       };
 
-      // Chuẩn bị payload đúng chuẩn Interface MoviePayload
-      const payload: Partial<MoviePayload> = {
+      // Helper để chuyển string status sang numeric enum
+      const mapStatusToEnum = (status: string): number => {
+        switch (status) {
+          case "COMING_SOON":
+            return MovieStatus.ComingSoon;
+          case "NOW_SHOWING":
+            return MovieStatus.Showing;
+          case "ENDED":
+            return MovieStatus.Ended;
+          default:
+            return MovieStatus.ComingSoon;
+        }
+      };
+
+      // Helper để chuyển string category sang numeric enum
+      const mapCategoryToEnum = (category: string): number => {
+        const categoryMap: Record<string, number> = {
+          MOVIE: MovieCategoryEnum.Movie,
+          SERIES: MovieCategoryEnum.Series,
+          DOCUMENTARY: MovieCategoryEnum.Documentary,
+          ANIMATION: MovieCategoryEnum.Animation,
+          ACTION: MovieCategoryEnum.Action,
+          COMEDY: MovieCategoryEnum.Comedy,
+          DRAMA: MovieCategoryEnum.Drama,
+          HORROR: MovieCategoryEnum.Horror,
+          ROMANCE: MovieCategoryEnum.Romance,
+          SCIFI: MovieCategoryEnum.SciFi,
+          THRILLER: MovieCategoryEnum.Thriller,
+          WAR: MovieCategoryEnum.War,
+          WESTERN: MovieCategoryEnum.Western,
+          MUSICAL: MovieCategoryEnum.Musical,
+          FAMILY: MovieCategoryEnum.Family,
+          FANTASY: MovieCategoryEnum.Fantasy,
+          ADVENTURE: MovieCategoryEnum.Adventure,
+          BIOGRAPHY: MovieCategoryEnum.Biography,
+          HISTORY: MovieCategoryEnum.History,
+          SPORT: MovieCategoryEnum.Sport,
+          RELIGIOUS: MovieCategoryEnum.Religious,
+          OTHER: MovieCategoryEnum.Other,
+        };
+        return categoryMap[category] ?? MovieCategoryEnum.Movie;
+      };
+
+      // BƯỚC 1: Upload poster mới (nếu có)
+      let newPosterUrl = values.posterUrl || currentPosterUrl;
+      if (posterFile) {
+        try {
+          toast.info("Đang upload poster...");
+          const { uploadApi } = await import("@/services/apiUpload");
+          const uploadResult = await uploadApi.uploadEntityImage(
+            posterFile,
+            "movie",
+            id
+          );
+          newPosterUrl = uploadResult.secureUrl;
+          console.log("New poster uploaded:", newPosterUrl);
+        } catch (uploadError) {
+          console.error("Poster upload error:", uploadError);
+          toast.error("Lỗi khi upload poster, sẽ giữ nguyên poster cũ");
+        }
+      }
+
+      // BƯỚC 2: Chuẩn bị payload đúng chuẩn MovieUpdateDto
+      const payload: MovieUpdateDto = {
         title: values.title,
         durationMinutes: values.durationMinutes,
         description: values.description,
         trailerUrl: values.trailerUrl || undefined,
+        posterUrl: newPosterUrl || undefined,
         releaseDate: formatDateForPostgres(values.releaseDate),
-        category: values.category as MovieCategory,
-        status: values.status,
-        // posterFile: ... (Chờ backend hỗ trợ upload)
+        category: mapCategoryToEnum(values.category),
+        status: mapStatusToEnum(values.status),
       };
 
       console.log("Updating Payload:", payload);
 
-      // Gọi API update
+      // BƯỚC 3: Gọi API update
       await movieApi.update(id, payload);
 
       toast.success("Đã cập nhật phim thành công!", {});
@@ -467,21 +581,141 @@ const EditMoviePage = () => {
                     )}
                   />
 
-                  {/* Poster Placeholder */}
-                  <div className="rounded-md border border-dashed p-4 text-center bg-muted/20">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Poster Phim
-                    </p>
-                    <div className="flex items-center justify-center h-32 bg-muted rounded">
-                      <span className="text-xs text-gray-500">
-                        Chức năng upload đang phát triển
-                      </span>
-                    </div>
-                  </div>
+                  {/* Poster Upload */}
+                  <FormField
+                    control={form.control as unknown as Control<FormValues>}
+                    name="posterUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Poster Phim</FormLabel>
+                        <FormControl>
+                          <div className="space-y-2">
+                            <div
+                              className={cn(
+                                "relative rounded-lg border-2 border-dashed transition-colors",
+                                (posterFile || currentPosterUrl)
+                                  ? "border-solid"
+                                  : "border-muted-foreground/25"
+                              )}
+                            >
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    // Validate file
+                                    const maxSizeMB = 10;
+                                    const maxBytes = maxSizeMB * 1024 * 1024;
+                                    if (file.size > maxBytes) {
+                                      toast.error(
+                                        `Kích thước file không được vượt quá ${maxSizeMB}MB`
+                                      );
+                                      return;
+                                    }
+
+                                    const allowedTypes = [
+                                      "image/jpeg",
+                                      "image/jpg",
+                                      "image/png",
+                                      "image/gif",
+                                      "image/webp",
+                                    ];
+                                    if (!allowedTypes.includes(file.type)) {
+                                      toast.error(
+                                        "Chỉ chấp nhận các định dạng: JPG, PNG, GIF, WEBP"
+                                      );
+                                      return;
+                                    }
+
+                                    // Save file for upload
+                                    setPosterFile(file);
+
+                                    // Create preview
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      field.onChange(reader.result as string);
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden"
+                                id="poster-upload"
+                              />
+
+                              {(posterFile || currentPosterUrl) ? (
+                                <div className="relative group">
+                                  <img
+                                    src={posterFile ? field.value : currentPosterUrl}
+                                    alt="Preview"
+                                    className="w-full h-auto rounded-lg object-cover"
+                                  />
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => {
+                                        document
+                                          .getElementById("poster-upload")
+                                          ?.click();
+                                      }}
+                                    >
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Thay đổi
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => {
+                                        setPosterFile(null);
+                                        setCurrentPosterUrl("");
+                                        field.onChange("");
+                                      }}
+                                    >
+                                      <X className="h-4 w-4 mr-2" />
+                                      Xóa
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <label
+                                  htmlFor="poster-upload"
+                                  className="w-full p-8 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors rounded-lg cursor-pointer"
+                                >
+                                  <ImageIcon className="h-12 w-12" />
+                                  <div className="text-center">
+                                    <p className="text-sm font-medium">
+                                      Click để chọn ảnh
+                                    </p>
+                                    <p className="text-xs mt-1">
+                                      PNG, JPG, GIF, WEBP (tối đa 10MB)
+                                    </p>
+                                  </div>
+                                </label>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {posterFile ? "Ảnh mới sẽ được upload khi lưu" : "Poster hiện tại của phim"}
+                            </p>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </Card>
             </div>
           </div>
+
+          {/* Diễn viên Section - Nằm ngoài grid chính */}
+          {id && (
+            <div className="mt-6">
+              <MovieActorManager movieId={id} />
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-4">
