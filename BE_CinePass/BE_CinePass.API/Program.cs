@@ -2,12 +2,16 @@ using BE_CinePass.Core.Configurations;
 using BE_CinePass.Core.Repositories;
 using BE_CinePass.Core.Services;
 using BE_CinePass.Shared.Common;
+using BE_CinePass.Shared.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text;
+
+// Load environment variables từ file .env
+DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,10 +27,25 @@ builder.Services.Configure<JwtSettings>(
 builder.Services.Configure<CloudinarySettings>(
     builder.Configuration.GetSection("Cloudinary"));
 
+// Cấu hình Momo từ Environment Variables
+builder.Services.Configure<MomoSettings>(options =>
+{
+    options.PartnerCode = Environment.GetEnvironmentVariable("MOMO_PARTNER_CODE") ?? "";
+    options.AccessKey = Environment.GetEnvironmentVariable("MOMO_ACCESS_KEY") ?? "";
+    options.SecretKey = Environment.GetEnvironmentVariable("MOMO_SECRET_KEY") ?? "";
+    options.ReturnUrl = Environment.GetEnvironmentVariable("MOMO_RETURN_URL") ?? "";
+    options.IpnUrl = Environment.GetEnvironmentVariable("MOMO_IPN_URL") ?? "";
+    options.RequestType = Environment.GetEnvironmentVariable("MOMO_REQUEST_TYPE") ?? "captureWallet";
+    options.ApiEndpoint = Environment.GetEnvironmentVariable("MOMO_API_ENDPOINT") ?? "";
+    options.QueryEndpoint = Environment.GetEnvironmentVariable("MOMO_QUERY_ENDPOINT") ?? "";
+    options.PosEndpoint = Environment.GetEnvironmentVariable("MOMO_POS_ENDPOINT") ?? "";
+    options.Environment = Environment.GetEnvironmentVariable("MOMO_ENVIRONMENT") ?? "Development";
+});
+
 // =======================
 // Database - PostgreSQL
 // =======================
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ?? throw new InvalidOperationException("Database connection string is missing");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString, npgsql =>
     {
@@ -37,8 +56,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // =======================
 // Redis (Refresh Token / Seat Hold)
 // =======================
-var redisConnection = builder.Configuration.GetConnectionString("Redis")
-    ?? throw new InvalidOperationException("Redis connection string is missing");
+var redisConnection = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING") ?? throw new InvalidOperationException("Redis connection string is missing");
 
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -142,6 +160,13 @@ builder.Services.AddScoped<ActorService>();
 builder.Services.AddScoped<MovieActorService>();
 builder.Services.AddScoped<SeatHoldService>();
 builder.Services.AddScoped<CloudinaryService>();
+builder.Services.AddScoped<MomoPaymentService>();
+
+// HttpClient Factory cho Momo và các external APIs
+builder.Services.AddHttpClient();
+
+// Momo Payment Service
+builder.Services.AddScoped<MomoPaymentService>();
 
 // =======================
 // Swagger + JWT
@@ -191,7 +216,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CinePassCors", policy =>
     {
-        policy.SetIsOriginAllowed(_ => true) 
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();

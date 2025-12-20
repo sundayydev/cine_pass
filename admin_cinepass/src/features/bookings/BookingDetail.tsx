@@ -96,6 +96,7 @@ const TicketCard = ({ ticket, index }: { ticket: OrderTicketDetail; index: numbe
     const movieTitle = ticket.showtime?.movie?.title || "Phim";
     const posterUrl = ticket.showtime?.movie?.posterUrl;
     const screenName = ticket.showtime?.screen?.name || "Phòng chiếu";
+    const cinemaName = ticket.showtime?.screen?.cinemaName || "Rạp chiếu phim";
     const seatCode = ticket.seat?.seatCode || "N/A";
     const seatType = ticket.seat?.seatTypeCode || "NORMAL";
     const showtime = ticket.showtime?.startTime;
@@ -160,6 +161,13 @@ const TicketCard = ({ ticket, index }: { ticket: OrderTicketDetail; index: numbe
 
                         {/* Details Grid */}
                         <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div className="space-y-1 col-span-2">
+                                <div className="flex items-center gap-2 text-slate-400">
+                                    <Building2 className="h-3 w-3" />
+                                    <span className="text-xs">Rạp chiếu</span>
+                                </div>
+                                <p className="font-semibold">{cinemaName}</p>
+                            </div>
                             <div className="space-y-1">
                                 <div className="flex items-center gap-2 text-slate-400">
                                     <Monitor className="h-3 w-3" />
@@ -354,6 +362,10 @@ const BookingDetailPage = () => {
         setTimeout(() => setCopiedId(null), 2000);
     };
 
+    const handlePrint = () => {
+        window.print();
+    };
+
     // Format price
     const formatPrice = (price: number) => {
         return new Intl.NumberFormat('vi-VN', {
@@ -400,8 +412,85 @@ const BookingDetailPage = () => {
 
     return (
         <div className="space-y-6 pb-10">
+            {/* Print Styles */}
+            <style>
+                {`
+                    @media print {
+                        /* Hide everything except the main content */
+                        body * {
+                            visibility: hidden;
+                        }
+                        
+                        /* Show only the print area and its children */
+                        .print-area,
+                        .print-area * {
+                            visibility: visible;
+                        }
+                        
+                        /* Position print area at top of page */
+                        .print-area {
+                            position: absolute;
+                            left: 0;
+                            top: 0;
+                            width: 100%;
+                            background: white;
+                            padding: 1rem;
+                        }
+                        
+                        /* Show print header */
+                        .print\\:block {
+                            display: block !important;
+                        }
+                        
+                        /* Hide navigation, buttons, and sidebar */
+                        .no-print,
+                        button,
+                        header,
+                        nav,
+                        .sidebar,
+                        .alert-dialog {
+                            display: none !important;
+                        }
+                        
+                        /* Optimize ticket cards for print */
+                        .ticket-print {
+                            page-break-inside: avoid;
+                            margin-bottom: 1.5rem;
+                            break-inside: avoid;
+                        }
+                        
+                        /* Ensure QR codes are visible */
+                        canvas, svg {
+                            visibility: visible !important;
+                        }
+                        
+                        /* Preserve colors and backgrounds when printing */
+                        * {
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                            color-adjust: exact;
+                        }
+                        
+                        /* Remove shadows for cleaner print */
+                        .shadow-md, .shadow-lg, .shadow-sm {
+                            box-shadow: none !important;
+                        }
+                        
+                        /* Add borders to cards for definition */
+                        .border-none {
+                            border: 1px solid #e5e7eb !important;
+                        }
+                        
+                        /* Optimize page breaks */
+                        @page {
+                            margin: 1cm;
+                        }
+                    }
+                `}
+            </style>
+
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between no-print">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => navigate("/bookings")}>
                         <ArrowLeft className="h-4 w-4" />
@@ -434,6 +523,17 @@ const BookingDetailPage = () => {
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-2">
+                    {(order.status === OrderStatus.Paid || order.status === OrderStatus.Confirmed) && (
+                        <Button
+                            onClick={handlePrint}
+                            variant="outline"
+                            className="border-primary text-primary hover:bg-primary hover:text-white"
+                        >
+                            <Printer className="mr-2 h-4 w-4" />
+                            In vé
+                        </Button>
+                    )}
+
                     {order.status === OrderStatus.Paid && (
                         <Button
                             onClick={handleConfirmOrder}
@@ -460,7 +560,21 @@ const BookingDetailPage = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className="lg:col-span-2 space-y-6 print-area">
+                    {/* Print Header - Only visible when printing */}
+                    <div className="hidden print:block mb-6">
+                        <div className="text-center border-b-2 border-slate-900 pb-4 mb-6">
+                            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+                                {order.tickets?.[0]?.showtime?.screen?.cinemaName || "CinePass"}
+                            </h1>
+                            <p className="text-lg font-semibold text-slate-700">VÉ XEM PHIM</p>
+                            <div className="flex justify-between text-sm text-slate-600 mt-2">
+                                <span>Mã đơn hàng: <strong>{order.id}</strong></span>
+                                <span>In lúc: <strong>{formatDate(new Date().toISOString())}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Tickets Section */}
                     <Card className="border-none shadow-md">
                         <CardHeader className="pb-4">
@@ -474,7 +588,9 @@ const BookingDetailPage = () => {
                         <CardContent className="space-y-4">
                             {order.tickets && order.tickets.length > 0 ? (
                                 order.tickets.map((ticket, index) => (
-                                    <TicketCard key={ticket.id || index} ticket={ticket} index={index} />
+                                    <div key={ticket.id || index} className="ticket-print">
+                                        <TicketCard ticket={ticket} index={index} />
+                                    </div>
                                 ))
                             ) : (
                                 <div className="text-center py-10 text-muted-foreground">
@@ -508,10 +624,28 @@ const BookingDetailPage = () => {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* Print Footer - Only visible when printing */}
+                    <div className="hidden print:block mt-8 pt-6 border-t-2 border-slate-900">
+                        <div className="text-center space-y-2">
+                            <p className="text-sm text-slate-700">
+                                Vui lòng xuất trình mã QR này tại quầy vé hoặc cổng check-in
+                            </p>
+                            <p className="text-sm text-slate-700">
+                                Mọi thắc mắc vui lòng liên hệ hotline: <strong>1900-xxxx</strong>
+                            </p>
+                            <p className="text-lg font-bold text-slate-900 mt-4">
+                                CẢM ƠN QUÝ KHÁCH - CHÚC QUÝ KHÁCH XEM PHIM VUI VẺ!
+                            </p>
+                            <p className="text-xs text-slate-500 mt-2">
+                                Powered by CinePass - Cinema Management System
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Sidebar */}
-                <div className="space-y-6">
+                <div className="space-y-6 no-print">
                     {/* Customer Info Card */}
                     {order.user && (
                         <Card className="border-none shadow-md bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
