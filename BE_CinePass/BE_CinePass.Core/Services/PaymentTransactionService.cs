@@ -99,6 +99,27 @@ public class PaymentTransactionService
         return transactions.Select(MapToResponseDto).ToList();
     }
 
+    public async Task<PaymentTransactionResponseDto?> GetByTransactionIdAsync(string transactionId, CancellationToken cancellationToken = default)
+    {
+        var transaction = await _paymentTransactionRepository.GetByProviderTransIdAsync(transactionId, cancellationToken);
+        return transaction == null ? null : MapToResponseDto(transaction);
+    }
+
+    public async Task<PaymentTransactionResponseDto?> UpdateTransactionIdAsync(Guid id, string transactionId, CancellationToken cancellationToken = default)
+    {
+        var transaction = await _paymentTransactionRepository.GetByIdAsync(id, cancellationToken);
+        if (transaction == null)
+            return null;
+
+        transaction.ProviderTransId = transactionId;
+
+        _paymentTransactionRepository.Update(transaction);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return MapToResponseDto(transaction);
+    }
+
+
     private static PaymentTransactionResponseDto MapToResponseDto(PaymentTransaction transaction)
     {
         return new PaymentTransactionResponseDto

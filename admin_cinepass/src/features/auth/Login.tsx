@@ -38,7 +38,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, isLoading: authLoading } = useAuth();
-  
+
   // State để quản lý việc ẩn/hiện mật khẩu
   const [showPassword, setShowPassword] = useState(false);
   // State để hiển thị loading khi đang gọi API
@@ -63,39 +63,38 @@ const LoginPage = () => {
 
   // 3. Hàm xử lý khi submit form (chỉ chạy khi validate thành công)
   const onSubmit = async (data: LoginValues) => {
+    // Xóa lỗi cũ (nếu có) trước khi bắt đầu request mới
+    form.clearErrors('root');
     setIsLoading(true);
+
     try {
-      // Gọi API đăng nhập thông qua AuthContext
       await login(data.email, data.password);
-      
-      // Nếu login thành công, navigate về trang trước đó hoặc dashboard
+
+      // Nếu thành công -> Chuyển hướng
+      // Lưu ý: Không cần set setIsLoading(false) ở đây vì component sẽ unmount hoặc chuyển trang ngay
       const from = (location.state as { from?: Location })?.from?.pathname || PATHS.DASHBOARD;
       navigate(from, { replace: true });
-      
+
     } catch (error) {
-      // Xử lý lỗi
-      console.error("Lỗi đăng nhập:", error);
-      const errorMessage = error instanceof Error 
-        ? error.message 
+      // Chỉ tắt loading khi GẶP LỖI để người dùng thử lại
+      setIsLoading(false);
+
+      console.error("Login error:", error);
+      const errorMessage = error instanceof Error
+        ? error.message
         : "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.";
-      
-      // Hiển thị lỗi trong form
+
       form.setError('root', {
         type: 'manual',
         message: errorMessage,
       });
-      
-      // TODO: Có thể thêm toast notification ở đây
-      // toast.error(errorMessage);
-    } finally {
-      setIsLoading(false); // Tắt trạng thái loading
     }
   };
 
   // Hiển thị loading nếu đang kiểm tra authentication
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin" />
           <p className="text-sm text-muted-foreground">Đang kiểm tra...</p>
@@ -114,11 +113,10 @@ const LoginPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Component Form của Shadcn bọc quanh thẻ form html */}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              
-              {/* --- Trường Email --- */}
+
+              {/* Email Field - Disable khi loading */}
               <FormField
                 control={form.control}
                 name="email"
@@ -126,44 +124,49 @@ const LoginPage = () => {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="admin@cinepro.com" {...field} disabled={isLoading} />
+                      <Input
+                        type="email"
+                        placeholder="admin@cinepro.com"
+                        disabled={isLoading} // Chặn nhập liệu khi đang load
+                        {...field}
+                      />
                     </FormControl>
-                    <FormMessage /> {/* Hiển thị lỗi validate nếu có */}
+                    <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* --- Trường Password --- */}
+              {/* Password Field - Disable khi loading */}
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
-                        <FormLabel>Mật khẩu</FormLabel>
-                        <Link 
-                            to={PATHS.FORGOT_PASSWORD} 
-                            className="text-sm font-medium text-primary hover:underline"
-                        >
-                            Quên mật khẩu?
-                        </Link>
+                      <FormLabel>Mật khẩu</FormLabel>
+                      <Link
+                        to={PATHS.FORGOT_PASSWORD}
+                        // Disable link khi đang load bằng pointer-events-none
+                        className={`text-sm font-medium text-primary hover:underline ${isLoading ? 'pointer-events-none opacity-50' : ''}`}
+                      >
+                        Quên mật khẩu?
+                      </Link>
                     </div>
                     <FormControl>
                       <div className="relative">
                         <Input
                           type={showPassword ? 'text' : 'password'}
                           placeholder="••••••••"
+                          disabled={isLoading} // Chặn nhập liệu
                           {...field}
-                          disabled={isLoading}
                         />
-                        {/* Nút toggle ẩn/hiện mật khẩu */}
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                           onClick={() => setShowPassword((prev) => !prev)}
-                          disabled={isLoading}
+                          disabled={isLoading} // Chặn toggle pass khi đang load
                         >
                           {showPassword ? (
                             <EyeOff className="h-4 w-4 text-gray-500" />
@@ -178,24 +181,26 @@ const LoginPage = () => {
                 )}
               />
 
-              {/* --- Hiển thị lỗi từ API --- */}
+              {/* Hiển thị lỗi chung (Root Error) đẹp hơn một chút */}
               {form.formState.errors.root && (
-                <div className="text-sm text-destructive">
+                <div className="p-3 rounded-md bg-destructive/15 text-destructive text-sm font-medium flex items-center gap-2">
+                  {/* Bạn có thể thêm icon AlertTriangle ở đây nếu muốn */}
                   {form.formState.errors.root.message}
                 </div>
               )}
 
-              {/* --- Nút Submit --- */}
+              {/* --- PHẦN 2: VIẾT LẠI BUTTON LOADING --- */}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
-                    <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Đang xử lý...
-                    </>
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Đang đăng nhập...</span>
+                  </div>
                 ) : (
-                    'Đăng nhập'
+                  'Đăng nhập'
                 )}
               </Button>
+
             </form>
           </Form>
         </CardContent>
