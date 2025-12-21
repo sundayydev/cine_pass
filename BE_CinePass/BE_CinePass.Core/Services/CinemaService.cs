@@ -383,6 +383,9 @@ public class CinemaService
                 CinemaName = cinema.Name,
                 Slug = cinema.Slug ?? string.Empty,
                 Address = cinema.Address,
+                City = cinema.City,
+                Latitude = cinema.Latitude,
+                Longitude = cinema.Longitude,
                 Movies = new List<MovieWithShowtimesDto>()
             };
         }
@@ -471,8 +474,105 @@ public class CinemaService
             CinemaName = cinema.Name,
             Slug = cinema.Slug ?? string.Empty,
             Address = cinema.Address,
+            City = cinema.City,
+            Latitude = cinema.Latitude,
+            Longitude = cinema.Longitude,
             Movies = grouped
         };
+    }
+
+    /// <summary>
+    /// Lấy danh sách các brand rạp chiếu phim (nhóm theo số điện thoại trùng nhau)
+    /// Chỉ lấy các rạp đang hoạt động (IsActive = true)
+    /// </summary>
+    public async Task<List<CinemaBrandResponseDto>> GetCinemaBrandsAsync(CancellationToken cancellationToken = default)
+    {
+        var activeCinemas = await _cinemaRepository.GetActiveCinemasAsync(cancellationToken);
+
+        // Nhóm theo Phone (loại bỏ khoảng trắng và ký tự đặc biệt để chuẩn hóa)
+        var groupedByPhone = activeCinemas
+            .Where(c => !string.IsNullOrWhiteSpace(c.Phone))
+            .GroupBy(c => NormalizePhone(c.Phone))
+            .Where(g => g.Key != null)
+            .Select(g => new
+            {
+                PhoneKey = g.Key,
+                Cinemas = g.OrderBy(c => c.City).ThenBy(c => c.Name).ToList()
+            })
+            .OrderByDescending(g => g.Cinemas.Count) // Brand lớn trước
+            .ToList();
+
+        // Xử lý các rạp không có số điện thoại hoặc số điện thoại duy nhất (có thể là rạp độc lập)
+        var cinemasWithoutPhone = activeCinemas
+            .Where(c => string.IsNullOrWhiteSpace(c.Phone))
+            .OrderBy(c => c.Name)
+            .ToList();
+
+        var result = new List<CinemaBrandResponseDto>();
+
+        // Các brand có số điện thoại
+        foreach (var group in groupedByPhone)
+        {
+            var firstCinema = group.Cinemas.First();
+            var brandName = ExtractBrandName(firstCinema.Name) ?? $"Hệ thống rạp ({group.Cinemas.Count} cụm)";
+
+            result.Add(new CinemaBrandResponseDto
+            {
+                BrandName = brandName,
+                Phone = firstCinema.Phone,
+                TotalCinemas = group.Cinemas.Count,
+                Cinemas = group.Cinemas.Select(MapToResponseDto).ToList()
+            });
+        }
+
+        // Các rạp độc lập (không có phone hoặc phone duy nhất không trùng ai)
+        foreach (var cinema in cinemasWithoutPhone)
+        {
+            result.Add(new CinemaBrandResponseDto
+            {
+                BrandName = cinema.Name, // Tự xem là brand riêng
+                Phone = cinema.Phone,
+                TotalCinemas = 1,
+                Cinemas = new List<CinemaResponseDto> { MapToResponseDto(cinema) }
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Chuẩn hóa số điện thoại để so sánh (loại bỏ khoảng trắng, dấu gạch, ngoặc...)
+    /// </summary>
+    private static string? NormalizePhone(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+            return null;
+
+        return System.Text.RegularExpressions.Regex.Replace(phone, @"[^\d]", "");
+    }
+
+    /// <summary>
+    /// Trích xuất tên brand từ tên rạp (ví dụ: "CGV Vincom Mega Mall" → "CGV")
+    /// Có thể cải thiện bằng cách dùng danh sách từ khóa hoặc ML sau này
+    /// </summary>
+    private static string? ExtractBrandName(string cinemaName)
+    {
+        if (string.IsNullOrWhiteSpace(cinemaName))
+            return null;
+
+        var parts = cinemaName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return null;
+
+        var firstWord = parts[0].ToUpper();
+
+        // Danh sách các brand phổ biến ở Việt Nam (có thể mở rộng)
+        var knownBrands = new HashSet<string>
+        {
+            "CGV", "LOTTE", "GALAXY", "BHD", "CINEMA", "STARLIGHT", "MEGAGS", "CINEMAX", "PLATINUM", "BETACINEPLEX",
+            "CINESTAR"
+        };
+
+        return knownBrands.Contains(firstWord) ? firstWord : parts[0];
     }
 
     private static CinemaResponseDto MapToResponseDto(Cinema cinema)
