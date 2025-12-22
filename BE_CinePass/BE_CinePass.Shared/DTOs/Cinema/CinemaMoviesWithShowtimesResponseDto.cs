@@ -8,5 +8,8 @@ public class CinemaMoviesWithShowtimesResponseDto
     public string CinemaName { get; set; } = string.Empty;
     public string? Slug { get; set; } = string.Empty;
     public string? Address { get; set; }
+    public string? City { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
     public List<MovieWithShowtimesDto> Movies { get; set; } = new List<MovieWithShowtimesDto>();
 }

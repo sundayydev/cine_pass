@@ -331,4 +331,29 @@ public class CinemasController : ControllerBase
                 ApiResponseDto<CinemaMoviesWithShowtimesResponseDto>.ErrorResult("Lỗi khi lấy lịch chiếu"));
         }
     }
+    /// <summary>
+    /// Lấy danh sách các brand rạp chiếu phim (nhóm theo số điện thoại)
+    /// </summary>
+    [HttpGet("brands")]
+    [ProducesResponseType(typeof(List<CinemaBrandResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<CinemaBrandResponseDto>>> GetCinemaBrands(
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var brands = await _cinemaService.GetCinemaBrandsAsync(cancellationToken);
+
+            var message = brands.Any()
+                ? $"Tìm thấy {brands.Count} hệ thống rạp chiếu phim"
+                : "Hiện chưa có rạp chiếu phim nào";
+
+            return Ok(ApiResponseDto<List<CinemaBrandResponseDto>>.SuccessResult(brands, message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting cinema brands");
+            return StatusCode(500,
+                ApiResponseDto<List<CinemaBrandResponseDto>>.ErrorResult("Lỗi khi lấy danh sách brand rạp chiếu"));
+        }
+    }
 }
