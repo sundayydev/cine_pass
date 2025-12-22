@@ -52,6 +52,7 @@ export interface SeatResponseDto {
   seatNumber: number;
   seatCode: string;
   seatTypeCode?: string;
+  qrOrderingCode?: string;
   isActive: boolean;
 }
 
@@ -184,8 +185,12 @@ export const deleteSeat = async (id: string): Promise<void> => {
     `/api/seats/${id}`
   )) as ApiResponseDto<unknown>;
 
-  if (!response.success) {
-    throw new Error(response.message || `Không tìm thấy ghế có ID ${id}`);
+  // Axios sẽ không có response.data cho 204
+  if (response && typeof response === 'object' && 'success' in response) {
+    const errorResponse = response as ApiResponseDto<unknown>;
+    if (!errorResponse.success) {
+      throw new Error(errorResponse.message || `Không tìm thấy ghế có ID ${id}`);
+    }
   }
 };
 

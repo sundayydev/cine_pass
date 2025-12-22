@@ -20,7 +20,7 @@ export interface ProductCreateDto {
   description?: string;
   price: number;
   imageUrl?: string;
-  category: number; // ProductCategory enum
+  category: string; // ProductCategory enum: "Food", "Drink", "Combo"
   isActive?: boolean;
 }
 
@@ -32,7 +32,7 @@ export interface ProductUpdateDto {
   description?: string;
   price?: number;
   imageUrl?: string;
-  category?: number; // ProductCategory enum
+  category?: string; // ProductCategory enum: "Food", "Drink", "Combo"
   isActive?: boolean;
 }
 
@@ -45,11 +45,25 @@ export interface ProductResponseDto {
   description?: string;
   price: number;
   imageUrl?: string;
-  category: number;
+  category: string; //
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
+
+// ==================== HELPERS ====================
+
+/**
+ * Chuyển category string sang number cho backend
+ */
+const categoryToNumber = (category: string): number => {
+  switch (category) {
+    case 'Food': return 0;
+    case 'Drink': return 1;
+    case 'Combo': return 2;
+    default: return 0;
+  }
+};
 
 // ==================== API FUNCTIONS ====================
 
@@ -89,7 +103,7 @@ export const getActive = async (): Promise<ProductResponseDto[]> => {
  * Lấy danh sách sản phẩm theo danh mục
  * GET /api/products/category/{category}
  */
-export const getByCategory = async (category: number): Promise<ProductResponseDto[]> => {
+export const getByCategory = async (category: string): Promise<ProductResponseDto[]> => {
   const response = (await axiosClient.get(
     `/api/products/category/${category}`
   )) as ApiResponseDto<ProductResponseDto[]>;
@@ -145,9 +159,15 @@ export const getById = async (id: string): Promise<ProductResponseDto> => {
  * POST /api/products
  */
 export const create = async (dto: ProductCreateDto): Promise<ProductResponseDto> => {
+  // Chuyển category từ string sang number cho backend
+  const requestBody = {
+    ...dto,
+    category: categoryToNumber(dto.category)
+  };
+
   const response = (await axiosClient.post(
     '/api/products',
-    dto
+    requestBody
   )) as ApiResponseDto<ProductResponseDto>;
 
   if (!response.success || !response.data) {
@@ -162,9 +182,15 @@ export const create = async (dto: ProductCreateDto): Promise<ProductResponseDto>
  * PUT /api/products/{id}
  */
 export const update = async (id: string, dto: ProductUpdateDto): Promise<ProductResponseDto> => {
+  // Chuyển category từ string sang number nếu có
+  const requestBody = {
+    ...dto,
+    category: dto.category ? categoryToNumber(dto.category) : undefined
+  };
+
   const response = (await axiosClient.put(
     `/api/products/${id}`,
-    dto
+    requestBody
   )) as ApiResponseDto<ProductResponseDto>;
 
   if (!response.success || !response.data) {

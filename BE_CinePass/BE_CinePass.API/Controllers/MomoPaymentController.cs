@@ -162,17 +162,24 @@ public class MomoPaymentController : ControllerBase
             // Xử lý kết quả thanh toán
             await ProcessPaymentResult(callback);
 
-            // Redirect về trang kết quả thanh toán trên frontend
-            var frontendUrl = callback.ResultCode == 0
-                ? $"{GetFrontendUrl()}/payment/success?orderId={callback.OrderId}"
-                : $"{GetFrontendUrl()}/payment/failed?orderId={callback.OrderId}&message={callback.Message}";
+            // Redirect về app mobile qua deep link
+            // URL encode message để tránh lỗi non-ASCII character
+            var encodedMessage = Uri.EscapeDataString(callback.Message ?? "Payment failed");
 
-            return Redirect(frontendUrl);
+            // Sử dụng deep link scheme "cinepass://" để redirect về app mobile
+            // Format: cinepass://payment/success hoặc cinepass://payment/failed
+            var deepLinkUrl = callback.ResultCode == 0
+                ? $"cinepass://payment/success?orderId={callback.OrderId}&resultCode={callback.ResultCode}"
+                : $"cinepass://payment/failed?orderId={callback.OrderId}&resultCode={callback.ResultCode}&message={encodedMessage}";
+
+            _logger.LogInformation("Redirecting to deep link: {DeepLink}", deepLinkUrl);
+
+            return Redirect(deepLinkUrl);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing Momo callback");
-            return Redirect($"{GetFrontendUrl()}/payment/error");
+            return Redirect("cinepass://payment/error");
         }
     }
 

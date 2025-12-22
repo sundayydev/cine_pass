@@ -46,9 +46,20 @@ public class SeatRepository : BaseRepository<Seat>, ISeatRepository
     public async Task<bool> IsSeatAvailableAsync(Guid seatId, Guid showtimeId, CancellationToken cancellationToken = default)
     {
         return !await _context.OrderTickets
-            .AnyAsync(ot => ot.SeatId == seatId && 
+            .AnyAsync(ot => ot.SeatId == seatId &&
                            ot.ShowtimeId == showtimeId &&
                            ot.Order.Status == OrderStatus.Confirmed, cancellationToken);
+    }
+
+    /// <summary>
+    /// Tìm ghế theo mã QR ordering (dùng cho tính năng order đồ ăn từ ghế)
+    /// </summary>
+    public async Task<Seat?> GetByQrCodeAsync(string qrOrderingCode, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(s => s.Screen)
+                .ThenInclude(sc => sc.Cinema)
+            .FirstOrDefaultAsync(s => s.QrOrderingCode == qrOrderingCode && s.IsActive, cancellationToken);
     }
 }
 
