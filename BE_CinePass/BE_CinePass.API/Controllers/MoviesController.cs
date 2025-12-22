@@ -43,7 +43,8 @@ public class MoviesController : ControllerBase
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(MovieDetailResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<MovieDetailResponseDto>> GetById(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<MovieDetailResponseDto>> GetById(Guid id,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -66,13 +67,15 @@ public class MoviesController : ControllerBase
     [HttpGet("slug/{slug}")]
     [ProducesResponseType(typeof(MovieDetailResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<MovieDetailResponseDto>> GetBySlug(string slug, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<MovieDetailResponseDto>> GetBySlug(string slug,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var movie = await _movieService.GetBySlugAsync(slug, cancellationToken);
             if (movie == null)
-                return NotFound(ApiResponseDto<MovieDetailResponseDto>.ErrorResult($"Không tìm thấy phim với slug {slug}"));
+                return NotFound(
+                    ApiResponseDto<MovieDetailResponseDto>.ErrorResult($"Không tìm thấy phim với slug {slug}"));
 
             return Ok(ApiResponseDto<MovieDetailResponseDto>.SuccessResult(movie));
         }
@@ -98,7 +101,8 @@ public class MoviesController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting now showing movies");
-            return StatusCode(500, ApiResponseDto<List<MovieResponseDto>>.ErrorResult("Lỗi khi lấy danh sách phim đang chiếu"));
+            return StatusCode(500,
+                ApiResponseDto<List<MovieResponseDto>>.ErrorResult("Lỗi khi lấy danh sách phim đang chiếu"));
         }
     }
 
@@ -117,7 +121,8 @@ public class MoviesController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting coming soon movies");
-            return StatusCode(500, ApiResponseDto<List<MovieResponseDto>>.ErrorResult("Lỗi khi lấy danh sách phim sắp chiếu"));
+            return StatusCode(500,
+                ApiResponseDto<List<MovieResponseDto>>.ErrorResult("Lỗi khi lấy danh sách phim sắp chiếu"));
         }
     }
 
@@ -126,12 +131,14 @@ public class MoviesController : ControllerBase
     /// </summary>
     [HttpGet("search")]
     [ProducesResponseType(typeof(List<MovieResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<MovieResponseDto>>> Search([FromQuery] string searchTerm, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<List<MovieResponseDto>>> Search([FromQuery] string searchTerm,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(searchTerm))
-                return BadRequest(ApiResponseDto<List<MovieResponseDto>>.ErrorResult("Từ khóa tìm kiếm không được để trống"));
+                return BadRequest(
+                    ApiResponseDto<List<MovieResponseDto>>.ErrorResult("Từ khóa tìm kiếm không được để trống"));
 
             var movies = await _movieService.SearchAsync(searchTerm, cancellationToken);
             return Ok(ApiResponseDto<List<MovieResponseDto>>.SuccessResult(movies));
@@ -149,15 +156,18 @@ public class MoviesController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(MovieResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<MovieResponseDto>> Create([FromBody] MovieCreateDto dto, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<MovieResponseDto>> Create([FromBody] MovieCreateDto dto,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponseDto<MovieResponseDto>.ErrorResult("Dữ liệu không hợp lệ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()));
+                return BadRequest(ApiResponseDto<MovieResponseDto>.ErrorResult("Dữ liệu không hợp lệ",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()));
 
             var movie = await _movieService.CreateAsync(dto, cancellationToken);
-            return CreatedAtAction(nameof(GetById), new { id = movie.Id }, ApiResponseDto<MovieResponseDto>.SuccessResult(movie, "Tạo phim thành công"));
+            return CreatedAtAction(nameof(GetById), new { id = movie.Id },
+                ApiResponseDto<MovieResponseDto>.SuccessResult(movie, "Tạo phim thành công"));
         }
         catch (InvalidOperationException ex)
         {
@@ -177,12 +187,14 @@ public class MoviesController : ControllerBase
     [ProducesResponseType(typeof(MovieResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<MovieResponseDto>> Update(Guid id, [FromBody] MovieUpdateDto dto, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<MovieResponseDto>> Update(Guid id, [FromBody] MovieUpdateDto dto,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             if (!ModelState.IsValid)
-                return BadRequest(ApiResponseDto<MovieResponseDto>.ErrorResult("Dữ liệu không hợp lệ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()));
+                return BadRequest(ApiResponseDto<MovieResponseDto>.ErrorResult("Dữ liệu không hợp lệ",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()));
 
             var movie = await _movieService.UpdateAsync(id, dto, cancellationToken);
             if (movie == null)
@@ -223,27 +235,43 @@ public class MoviesController : ControllerBase
             return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi khi xóa phim"));
         }
     }
+
     [HttpGet("{id}/cinemas")]
-    [ProducesResponseType(typeof(MovieCinemasWithShowtimesResponseDto), StatusCodes.Status200OK)]
-    public async Task<ActionResult<MovieCinemasWithShowtimesResponseDto>> GetCinemasWithShowtimes(
-        Guid id,
-        [FromQuery] DateTime? date,
-        CancellationToken cancellationToken = default)
+    [ProducesResponseType(typeof(ApiResponseDto<MovieCinemasWithShowtimesResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponseDto<object>), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponseDto<MovieCinemasWithShowtimesResponseDto>>>
+        GetCinemasWithShowtimes(
+            Guid id,
+            [FromQuery] DateTime? date,
+            CancellationToken cancellationToken = default)
     {
         try
         {
-            var result = await _movieService.GetCinemasWithShowtimesAsync(id, date, cancellationToken);
+            var result = await _movieService
+                .GetCinemasWithShowtimesAsync(id, date, cancellationToken);
 
+            // ✅ KHÔNG có suất chiếu ≠ lỗi
             if (result == null)
-                return NotFound(ApiResponseDto<object>.ErrorResult("Không có suất chiếu nào cho phim này"));
+            {
+                return Ok(ApiResponseDto<MovieCinemasWithShowtimesResponseDto>
+                    .SuccessResult(new MovieCinemasWithShowtimesResponseDto
+                        {
+                            Cinemas = new List<CinemaWithShowtimesForMovieDto>()
+                        },
+                        "Không có suất chiếu nào cho phim này"));
+            }
 
-            return Ok(ApiResponseDto<MovieCinemasWithShowtimesResponseDto>.SuccessResult(result));
+            return Ok(ApiResponseDto<MovieCinemasWithShowtimesResponseDto>
+                .SuccessResult(result));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error getting cinemas for movie {MovieId}", id);
-            return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi server"));
+            _logger.LogError(ex,
+                "Error getting cinemas for movie {MovieId}", id);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                ApiResponseDto<object>.ErrorResult("Lỗi server"));
         }
     }
 }
-

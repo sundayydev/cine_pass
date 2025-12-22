@@ -186,9 +186,12 @@ public class MovieService
                 CinemaName = g.Key.Name,
                 Slug = g.Key.Slug ?? string.Empty,
                 Address = g.Key.Address,
+                City = g.Key.City,
                 Phone = g.Key.Phone,
                 BannerUrl = g.Key.BannerUrl,
                 TotalScreens = g.Key.TotalScreens,
+                Latitude = g.Key.Latitude,
+                Longitude = g.Key.Longitude,
                 Showtimes = g.Select(s => new ShowtimeResponseDto
                 {
                     Id = s.Id,
@@ -233,6 +236,12 @@ public class MovieService
 
     private static MovieResponseDto MapToResponseDto(Movie movie)
     {
+        var reviews = movie.MovieReviews?.Where(r => r.Rating.HasValue).ToList() ?? new List<MovieReview>();
+        var totalReviews = reviews.Count;
+        var averageRating = totalReviews > 0 
+            ? Math.Round(reviews.Average(r => r.Rating!.Value), 1) 
+            : (double?)null;
+
         return new MovieResponseDto
         {
             Id = movie.Id,
@@ -246,12 +255,20 @@ public class MovieService
             ReleaseDate = movie.ReleaseDate,
             Category = movie.Category.ToString(),
             Status = movie.Status.ToString(),
-            CreatedAt = movie.CreatedAt
+            CreatedAt = movie.CreatedAt,
+            AverageRating = averageRating,
+            TotalReviews = totalReviews
         };
     }
 
     private static MovieDetailResponseDto MapToDetailResponseDto(Movie movie)
     {
+        var reviews = movie.MovieReviews?.Where(r => r.Rating.HasValue).ToList() ?? new List<MovieReview>();
+        var totalReviews = reviews.Count;
+        var averageRating = totalReviews > 0 
+            ? Math.Round(reviews.Average(r => r.Rating!.Value), 1) 
+            : (double?)null;
+
         return new MovieDetailResponseDto
         {
             Id = movie.Id,
@@ -266,6 +283,8 @@ public class MovieService
             Category = movie.Category.ToString(),
             Status = movie.Status.ToString(),
             CreatedAt = movie.CreatedAt,
+            AverageRating = averageRating,
+            TotalReviews = totalReviews,
             Actors = movie.MovieActors?.Select(ma => new MovieActorDto
             {
                 Id = ma.Actor?.Id ?? Guid.Empty,

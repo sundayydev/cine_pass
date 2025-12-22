@@ -12,6 +12,14 @@ public class MovieRepository : BaseRepository<Movie>, IMovieRepository
     {
     }
 
+    public override async Task<IEnumerable<Movie>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(m => m.MovieReviews)
+            .OrderByDescending(m => m.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Movie?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -35,6 +43,7 @@ public class MovieRepository : BaseRepository<Movie>, IMovieRepository
     public async Task<IEnumerable<Movie>> GetByStatusAsync(MovieStatus status, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .Include(m => m.MovieReviews)
             .Where(m => m.Status == status)
             .OrderByDescending(m => m.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -54,6 +63,7 @@ public class MovieRepository : BaseRepository<Movie>, IMovieRepository
     {
         var lowerSearchTerm = searchTerm.ToLower();
         return await _dbSet
+            .Include(m => m.MovieReviews)
             .Where(m => m.Title.ToLower().Contains(lowerSearchTerm) ||
                        (m.Description != null && m.Description.ToLower().Contains(lowerSearchTerm)))
             .OrderByDescending(m => m.CreatedAt)
