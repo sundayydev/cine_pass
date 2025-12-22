@@ -158,7 +158,7 @@ public class SeatService
                     SeatCode = seatCode,
                     SeatTypeCode = defaultSeatTypeCode,
                     IsActive = true,
-                    QrOrderingCode = (i * seatsPerRow + j).ToString()
+                    QrOrderingCode = GenerateQrOrderingCode()
                 };
 
                 seats.Add(seat);
@@ -189,6 +189,16 @@ public class SeatService
             QrOrderingCode = seat.QrOrderingCode,
             IsActive = seat.IsActive
         };
+    }
+
+    /// <summary>
+    /// Tạo mã QrOrderingCode 6 ký tự ngẫu nhiên (chữ hoa + số)
+    /// </summary>
+    private static string GenerateQrOrderingCode()
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var random = new Random();
+        return new string(Enumerable.Range(0, 6).Select(_ => chars[random.Next(chars.Length)]).ToArray());
     }
 }
 

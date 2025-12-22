@@ -31,6 +31,9 @@ public class Order
     [Column("expire_at")]
     public DateTime? ExpireAt { get; set; }
 
+    [Column("note")]
+    public string? Note { get; set; }
+
     // Navigation properties
     [ForeignKey(nameof(UserId))]
     public virtual User? User { get; set; }

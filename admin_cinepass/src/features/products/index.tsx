@@ -46,12 +46,11 @@ import {
 import { useDebounce } from "@/hooks/useDebounce";
 import { cn } from "@/lib/utils";
 
-// Product Category
+// Product Category (khớp với backend - trả về string)
 export const ProductCategory = {
-    Food: 0,
-    Drink: 1,
-    Combo: 2,
-    Other: 3
+    Food: "Food",
+    Drink: "Drink",
+    Combo: "Combo"
 } as const;
 
 const ProductsListPage = () => {
@@ -82,7 +81,7 @@ const ProductsListPage = () => {
 
             // Filter by category if selected
             if (categoryFilter !== "all") {
-                data = await productApi.getByCategory(parseInt(categoryFilter));
+                data = await productApi.getByCategory(categoryFilter);
             } else {
                 data = await productApi.getAll();
             }
@@ -125,7 +124,7 @@ const ProductsListPage = () => {
     };
 
     // --- Helper: Get Visuals based on Product Category ---
-    const getCategoryVisuals = (category: number) => {
+    const getCategoryVisuals = (category: string) => {
         switch (category) {
             case ProductCategory.Food:
                 return {
@@ -202,10 +201,9 @@ const ProductsListPage = () => {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Tất cả</SelectItem>
-                                        <SelectItem value="0">Đồ ăn</SelectItem>
-                                        <SelectItem value="1">Đồ uống</SelectItem>
-                                        <SelectItem value="2">Combo</SelectItem>
-                                        <SelectItem value="3">Khác</SelectItem>
+                                        <SelectItem value={ProductCategory.Food}>Đồ ăn</SelectItem>
+                                        <SelectItem value={ProductCategory.Drink}>Đồ uống</SelectItem>
+                                        <SelectItem value={ProductCategory.Combo}>Combo</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Upload, X } from "lucide-react";
+import { ArrowLeft, Loader2, Upload, X, Popcorn, CupSoda, Gift } from "lucide-react";
 import { toast } from "sonner";
 
 // API Services
@@ -32,12 +32,11 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
-// Product Category
+// Product Category (khớp với backend C# enum - trả về string)
 export const ProductCategory = {
-    Food: 0,
-    Drink: 1,
-    Combo: 2,
-    Other: 3
+    Food: "Food",
+    Drink: "Drink",
+    Combo: "Combo"
 } as const;
 
 // Schema validation
@@ -46,7 +45,7 @@ const productSchema = z.object({
     description: z.string().max(1000, "Mô tả tối đa 1000 ký tự").optional(),
     price: z.number().min(1000, "Giá tối thiểu 1,000đ").max(100000000, "Giá tối đa 100,000,000đ"),
     imageUrl: z.string().url("URL ảnh không hợp lệ").optional().or(z.literal("")),
-    category: z.number().min(0).max(3),
+    category: z.enum([ProductCategory.Food, ProductCategory.Drink, ProductCategory.Combo]),
     isActive: z.boolean(),
 });
 
@@ -174,8 +173,9 @@ const CreateProductPage = () => {
                                             <FormItem>
                                                 <FormLabel>Danh mục *</FormLabel>
                                                 <Select
-                                                    onValueChange={(value) => field.onChange(parseInt(value))}
-                                                    defaultValue={field.value.toString()}
+                                                    onValueChange={field.onChange}
+                                                    value={field.value}
+                                                    defaultValue={ProductCategory.Food}
                                                 >
                                                     <FormControl>
                                                         <SelectTrigger>
@@ -183,10 +183,24 @@ const CreateProductPage = () => {
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="0">🍿 Đồ ăn</SelectItem>
-                                                        <SelectItem value="1">☕ Đồ uống</SelectItem>
-                                                        <SelectItem value="2">🎁 Combo</SelectItem>
-                                                        <SelectItem value="3">📦 Khác</SelectItem>
+                                                        <SelectItem value={ProductCategory.Food}>
+                                                            <div className="flex items-center gap-2">
+                                                                <Popcorn className="h-4 w-4" />
+                                                                <span>Đồ ăn</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                        <SelectItem value={ProductCategory.Drink}>
+                                                            <div className="flex items-center gap-2">
+                                                                <CupSoda className="h-4 w-4" />
+                                                                <span>Đồ uống</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                        <SelectItem value={ProductCategory.Combo}>
+                                                            <div className="flex items-center gap-2">
+                                                                <Gift className="h-4 w-4" />
+                                                                <span>Combo</span>
+                                                            </div>
+                                                        </SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 <FormDescription>
