@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Grid3x3, Pencil, X, Monitor, Armchair, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils"; // Giả sử bạn có utility này từ shadcn
+import QRCode from "react-qr-code";
 
 // API Services
 import { screenApi, type ScreenResponseDto } from "@/services/apiScreen";
@@ -26,6 +27,16 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const ScreenSeatsPage = () => {
   const { cinemaId, roomId } = useParams<{ cinemaId: string; roomId: string }>();
@@ -38,6 +49,9 @@ const ScreenSeatsPage = () => {
   const [isCreatingSeat, setIsCreatingSeat] = useState(false);
   const [isEditingSeat, setIsEditingSeat] = useState(false);
   const [editingSeat, setEditingSeat] = useState<SeatResponseDto | null>(null);
+  const [isDeletingSeat, setIsDeletingSeat] = useState(false);
+  const [deletingSeatId, setDeletingSeatId] = useState<string | null>(null);
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
 
   // Form state for creating seat
   const [seatForm, setSeatForm] = useState({
@@ -180,21 +194,35 @@ const ScreenSeatsPage = () => {
     }
   };
 
-  const handleDeleteSeat = async (seatId: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa ghế này?")) return;
+  const openDeleteDialog = (seatId: string) => {
+    setDeletingSeatId(seatId);
+    setIsDeletingSeat(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingSeatId) return;
     try {
-      await seatApi.delete(seatId);
+      await seatApi.delete(deletingSeatId);
       toast.success("Đã xóa ghế");
       loadData();
     } catch (error: any) {
       toast.error(error.message || "Lỗi xóa ghế");
+    } finally {
+      setIsDeletingSeat(false);
+      setDeletingSeatId(null);
+      setEditingSeat(null);
     }
   };
 
-  const handleGenerateSeats = async () => {
-    if (!roomId) return;
-    if (!confirm(`Hành động này sẽ XÓA TOÀN BỘ ghế cũ và tạo mới ${generateForm.rows * generateForm.seatsPerRow} ghế. Tiếp tục?`)) return;
 
+  const openGenerateDialog = () => {
+    if (!roomId) return;
+    setIsGenerateDialogOpen(true);
+  };
+
+  const handleConfirmGenerate = async () => {
+    if (!roomId) return;
+    setIsGenerateDialogOpen(false);
     try {
       setIsGenerating(true);
       const dto: SeatGenerateDto = {
@@ -348,7 +376,7 @@ const ScreenSeatsPage = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button variant="destructive" onClick={handleGenerateSeats} disabled={isGenerating} className="w-full mt-2">
+                  <Button variant="destructive" onClick={openGenerateDialog} disabled={isGenerating} className="w-full mt-2">
                     {isGenerating ? <Spinner className="w-4 h-4" /> : "Tạo lại sơ đồ"}
                   </Button>
                   <p className="text-[10px] text-muted-foreground text-center">Lưu ý: Sẽ xóa toàn bộ dữ liệu ghế cũ.</p>
@@ -436,7 +464,7 @@ const ScreenSeatsPage = () => {
 
                                 {/* Quick Delete Action */}
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); handleDeleteSeat(seat.id); }}
+                                  onClick={(e) => { e.stopPropagation(); setEditingSeat(seat); openDeleteDialog(seat.id); }}
                                   className="absolute -top-2 -right-2 bg-white text-red-500 rounded-full p-0.5 shadow-sm border border-red-100 opacity-0 group-hover/seat:opacity-100 transition-opacity hover:bg-red-50 hover:scale-110"
                                 >
                                   <X className="w-3 h-3" />
@@ -464,65 +492,104 @@ const ScreenSeatsPage = () => {
       {/* --- EDIT MODAL --- */}
       {isEditingSeat && editingSeat && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <Card className="w-full max-w-sm shadow-2xl border-none">
+          <Card className="w-full max-w-md shadow-2xl border-none">
             <CardHeader className="bg-slate-50 border-b pb-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg">Hiệu chỉnh ghế {editingSeat.seatCode}</CardTitle>
-                  <CardDescription>Cập nhật trạng thái và loại ghế</CardDescription>
+                  <CardTitle className="text-lg">Chi tiết ghế {editingSeat.seatCode}</CardTitle>
+                  <CardDescription>Xem thông tin và chỉnh sửa ghế</CardDescription>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsEditingSeat(false)}>
                   <X className="w-4 h-4" />
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-6 space-y-4">
-              <div className="space-y-2">
-                <Label>Loại ghế</Label>
-                <Select value={editForm.seatTypeCode} onValueChange={v => setEditForm({ ...editForm, seatTypeCode: v })}>
-                  <SelectTrigger><SelectValue placeholder="Chọn loại" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="null">Thường (Mặc định)</SelectItem>
-                    {seatTypes.map(t => (
-                      <SelectItem key={t.code} value={t.code}>
-                        <div className="flex items-center gap-2">
-                          <div className={cn("w-3 h-3 rounded-full", t.code.includes("VIP") ? "bg-amber-500" : t.code.includes("COUPLE") ? "bg-pink-500" : "bg-sky-500")}></div>
-                          {t.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <CardContent className="pt-6 space-y-5">
+
+              {/* --- SEAT INFO SECTION --- */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-lg border">
+                  <span className="text-xs text-muted-foreground block mb-1">Mã ghế</span>
+                  <span className="font-bold text-lg">{editingSeat.seatCode}</span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg border">
+                  <span className="text-xs text-muted-foreground block mb-1">Vị trí</span>
+                  <span className="font-medium">Hàng {editingSeat.seatRow} - Ghế {editingSeat.seatNumber}</span>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Trạng thái</Label>
-                <Select value={editForm.isActive ? "active" : "inactive"} onValueChange={v => setEditForm({ ...editForm, isActive: v === "active" })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active"><span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Đang hoạt động</span></SelectItem>
-                    <SelectItem value="inactive"><span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-gray-400"></span> Bảo trì / Ẩn</span></SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* --- QR ORDERING CODE SECTION --- */}
+              {editingSeat.qrOrderingCode && (
+                <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100 text-center">
+                  <span className="text-xs text-indigo-600 font-semibold uppercase tracking-wide block mb-3">Mã QR Ordering</span>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="bg-white p-3 rounded-lg shadow-sm border">
+                      <QRCode
+                        value={editingSeat.qrOrderingCode}
+                        size={120}
+                        level="M"
+                        fgColor="#4338ca"
+                      />
+                    </div>
+                    <div className="font-mono text-lg font-bold text-indigo-700 tracking-widest bg-white px-4 py-2 rounded-lg border border-indigo-200">
+                      {editingSeat.qrOrderingCode}
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2">Quét mã này để đặt vé tại quầy</p>
+                </div>
+              )}
 
-              {/* Preview */}
-              <div className="mt-4 p-4 bg-slate-50 rounded-lg flex flex-col items-center gap-2 border border-dashed">
-                <span className="text-xs text-muted-foreground uppercase font-bold">Xem trước</span>
-                <div className={cn(
-                  "flex items-center justify-center text-xs font-bold shadow-md transition-all",
-                  "h-10 rounded-t-lg rounded-b-md border-b-4",
-                  isCoupleSeat(editForm.seatTypeCode) ? "w-24" : "w-10",
-                  getSeatStyle(editForm.seatTypeCode, editForm.isActive)
-                )}>
-                  {editingSeat.seatNumber}
+              <Separator />
+
+              {/* --- EDIT FORM --- */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Loại ghế</Label>
+                  <Select value={editForm.seatTypeCode} onValueChange={v => setEditForm({ ...editForm, seatTypeCode: v })}>
+                    <SelectTrigger><SelectValue placeholder="Chọn loại" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="null">Thường (Mặc định)</SelectItem>
+                      {seatTypes.map(t => (
+                        <SelectItem key={t.code} value={t.code}>
+                          <div className="flex items-center gap-2">
+                            <div className={cn("w-3 h-3 rounded-full", t.code.includes("VIP") ? "bg-amber-500" : t.code.includes("COUPLE") ? "bg-pink-500" : "bg-sky-500")}></div>
+                            {t.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Trạng thái</Label>
+                  <Select value={editForm.isActive ? "active" : "inactive"} onValueChange={v => setEditForm({ ...editForm, isActive: v === "active" })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active"><span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Đang hoạt động</span></SelectItem>
+                      <SelectItem value="inactive"><span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-gray-400"></span> Bảo trì / Ẩn</span></SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Preview */}
+                <div className="p-4 bg-slate-50 rounded-lg flex flex-col items-center gap-2 border border-dashed">
+                  <span className="text-xs text-muted-foreground uppercase font-bold">Xem trước</span>
+                  <div className={cn(
+                    "flex items-center justify-center text-xs font-bold shadow-md transition-all",
+                    "h-10 rounded-t-lg rounded-b-md border-b-4",
+                    isCoupleSeat(editForm.seatTypeCode) ? "w-24" : "w-10",
+                    getSeatStyle(editForm.seatTypeCode, editForm.isActive)
+                  )}>
+                    {editingSeat.seatNumber}
+                  </div>
                 </div>
               </div>
             </CardContent>
             <CardFooter className="bg-slate-50 border-t pt-4 flex justify-between">
-              <Button variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => { setIsEditingSeat(false); handleDeleteSeat(editingSeat.id); }}>
+              <Button variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => { setIsEditingSeat(false); openDeleteDialog(editingSeat.id); }}>
                 <Trash2 className="w-4 h-4 mr-2" /> Xóa ghế
               </Button>
               <Button onClick={handleUpdateSeat}>Lưu thay đổi</Button>
@@ -530,6 +597,66 @@ const ScreenSeatsPage = () => {
           </Card>
         </div>
       )}
+      {/* --- DELETE CONFIRMATION DIALOG --- */}
+      <AlertDialog open={isDeletingSeat} onOpenChange={setIsDeletingSeat}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 text-red-600 mb-2">
+              <div className="p-2 bg-red-50 rounded-full">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <AlertDialogTitle className="text-lg">Xác nhận xóa ghế</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn xóa ghế <span className="font-bold text-slate-900">{editingSeat?.seatCode}</span>?
+              Hành động này không thể hoàn tác và sẽ gỡ bỏ ghế khỏi sơ đồ phòng chiếu.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setIsDeletingSeat(false); setDeletingSeatId(null); }}>
+              Hủy bỏ
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleConfirmDelete}
+            >
+              Xác nhận xóa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* --- GENERATE SEATS CONFIRMATION DIALOG --- */}
+      <AlertDialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 text-amber-600 mb-2">
+              <div className="p-2 bg-amber-50 rounded-full">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <AlertDialogTitle className="text-lg">Tạo lại sơ đồ ghế</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Hành động này sẽ <span className="font-bold text-red-600">XÓA TOÀN BỘ</span> ghế cũ và tạo mới{" "}
+                <span className="font-bold text-slate-900">{generateForm.rows * generateForm.seatsPerRow} ghế</span>.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Cấu hình: {generateForm.rows} hàng × {generateForm.seatsPerRow} ghế/hàng
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={handleConfirmGenerate}
+            >
+              Tiếp tục tạo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

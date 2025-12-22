@@ -161,6 +161,7 @@ builder.Services.AddScoped<MovieActorService>();
 builder.Services.AddScoped<SeatHoldService>();
 builder.Services.AddScoped<CloudinaryService>();
 builder.Services.AddScoped<MomoPaymentService>();
+builder.Services.AddScoped<SeatFoodOrderService>();
 
 // HttpClient Factory cho Momo và các external APIs
 builder.Services.AddHttpClient();
