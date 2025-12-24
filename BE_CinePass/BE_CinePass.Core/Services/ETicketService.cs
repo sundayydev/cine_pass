@@ -109,7 +109,8 @@ public class ETicketService
                 IsValid = false,
                 Status = "Invalid",
                 Message = "Vé không hợp lệ. Không tìm thấy thông tin vé trong hệ thống.",
-                TicketDetail = null
+                TicketDetail = null,
+                Summary = null
             };
         }
 
@@ -121,7 +122,9 @@ public class ETicketService
                 IsValid = false,
                 Status = "AlreadyUsed",
                 Message = $"Vé đã được sử dụng lúc {eTicket.UsedAt:dd/MM/yyyy HH:mm:ss}.",
-                TicketDetail = MapToDetailDto(eTicket)
+                CheckinAt = eTicket.UsedAt,
+                TicketDetail = MapToDetailDto(eTicket),
+                Summary = BuildCheckinSummary(eTicket)
             };
         }
 
@@ -133,26 +136,125 @@ public class ETicketService
                 IsValid = false,
                 Status = "Invalid",
                 Message = "Đơn hàng chưa được xác nhận thanh toán.",
-                TicketDetail = null
+                TicketDetail = null,
+                Summary = null
+            };
+        }
+
+        // Check if showtime has expired (more than 30 minutes after start time)
+        var showtime = eTicket.OrderTicket?.Showtime;
+        if (showtime != null && DateTime.UtcNow > showtime.StartTime.AddMinutes(30))
+        {
+            return new TicketVerificationResultDto
+            {
+                IsValid = false,
+                Status = "Expired",
+                Message = "Vé đã hết hạn. Suất chiếu đã bắt đầu quá 30 phút.",
+                TicketDetail = MapToDetailDto(eTicket),
+                Summary = BuildCheckinSummary(eTicket)
             };
         }
 
         // Mark ticket as used
+        var checkinTime = DateTime.UtcNow;
         eTicket.IsUsed = true;
-        eTicket.UsedAt = DateTime.UtcNow;
+        eTicket.UsedAt = checkinTime;
 
         _eTicketRepository.Update(eTicket);
         await _context.SaveChangesAsync(cancellationToken);
 
-        // Return success with ticket details
+        // Return success with ticket details and summary
         return new TicketVerificationResultDto
         {
             IsValid = true,
             Status = "Valid",
             Message = "Vé hợp lệ. Check-in thành công!",
-            TicketDetail = MapToDetailDto(eTicket)
+            CheckinAt = checkinTime,
+            TicketDetail = MapToDetailDto(eTicket),
+            Summary = BuildCheckinSummary(eTicket)
         };
     }
+
+    /// <summary>
+    /// Xây dựng thông tin tổng hợp nhanh cho việc hiển thị check-in
+    /// </summary>
+    private CheckinSummaryDto BuildCheckinSummary(ETicket eTicket)
+    {
+        var orderTicket = eTicket.OrderTicket;
+        var showtime = orderTicket?.Showtime;
+        var movie = showtime?.Movie;
+        var screen = showtime?.Screen;
+        var cinema = screen?.Cinema;
+        var seat = orderTicket?.Seat;
+        var order = orderTicket?.Order;
+        var user = order?.User;
+
+        var now = DateTime.UtcNow;
+        var minutesUntilShowtime = showtime != null
+            ? (int)(showtime.StartTime - now).TotalMinutes
+            : 0;
+
+        // Đếm số vé đã check-in trong đơn hàng
+        var totalTicketsInOrder = order?.OrderTickets?.Count ?? 1;
+        var checkedInTicketsInOrder = order?.OrderTickets?
+            .Count(ot => ot.ETickets?.Any(et => et.IsUsed) == true) ?? 0;
+
+        // Lấy thông tin sản phẩm đi kèm
+        var products = order?.OrderProducts?
+            .Select(op => new OrderProductSummaryDto
+            {
+                ProductName = op.Product?.Name ?? "N/A",
+                Quantity = op.Quantity,
+                UnitPrice = op.UnitPrice,
+                Category = op.Product?.Category.ToString()
+            })
+            .ToList();
+
+        return new CheckinSummaryDto
+        {
+            // Thông tin vé
+            TicketCode = eTicket.TicketCode,
+            TicketPrice = orderTicket?.Price ?? 0,
+
+            // Thông tin phim
+            MovieTitle = movie?.Title ?? "N/A",
+            MoviePosterUrl = movie?.PosterUrl,
+            MovieDurationMinutes = movie?.DurationMinutes ?? 0,
+            MovieRating = movie?.AgeLimit > 0 ? $"{movie.AgeLimit}+" : null, // Phân loại độ tuổi từ AgeLimit
+
+            // Thông tin suất chiếu
+            ShowtimeStart = showtime?.StartTime ?? DateTime.MinValue,
+            ShowtimeEnd = showtime?.EndTime ?? DateTime.MinValue,
+            MinutesUntilShowtime = minutesUntilShowtime,
+            IsShowtimeStarted = minutesUntilShowtime < 0,
+
+            // Thông tin rạp & phòng chiếu
+            CinemaName = cinema?.Name ?? "N/A",
+            CinemaAddress = cinema?.Address,
+            ScreenName = screen?.Name ?? "N/A",
+
+            // Thông tin ghế
+            SeatCode = seat?.SeatCode ?? "N/A",
+            SeatRow = seat?.SeatRow ?? "",
+            SeatNumber = seat?.SeatNumber ?? 0,
+            SeatType = seat?.SeatTypeCode,
+
+            // Thông tin khách hàng
+            CustomerName = user?.FullName,
+            CustomerEmail = user?.Email,
+            CustomerPhone = user?.Phone,
+
+            // Thông tin đơn hàng
+            OrderId = order?.Id ?? Guid.Empty,
+            OrderTotalAmount = order?.TotalAmount ?? 0,
+            TotalTicketsInOrder = totalTicketsInOrder,
+            CheckedInTicketsInOrder = checkedInTicketsInOrder,
+
+            // Sản phẩm đi kèm
+            Products = products
+        };
+    }
+
 
     private static string GenerateTicketCode()
     {
@@ -184,6 +286,11 @@ public class ETicketService
 
     private static ETicketDetailDto MapToDetailDto(ETicket eTicket)
     {
+        var screen = eTicket.OrderTicket?.Showtime?.Screen;
+        var cinema = screen?.Cinema;
+        var seat = eTicket.OrderTicket?.Seat;
+        var user = eTicket.OrderTicket?.Order?.User;
+
         return new ETicketDetailDto
         {
             Id = eTicket.Id,
@@ -191,6 +298,44 @@ public class ETicketService
             QrData = eTicket.QrData,
             IsUsed = eTicket.IsUsed,
             UsedAt = eTicket.UsedAt,
+
+            // Thông tin rạp chiếu
+            Cinema = cinema != null ? new CinemaInfoDto
+            {
+                Id = cinema.Id,
+                Name = cinema.Name,
+                Address = cinema.Address,
+                City = cinema.City,
+                Phone = cinema.Phone
+            } : null,
+
+            // Thông tin phòng chiếu
+            Screen = screen != null ? new ScreenInfoDto
+            {
+                Id = screen.Id,
+                Name = screen.Name,
+                TotalSeats = screen.TotalSeats
+            } : null,
+
+            // Thông tin ghế
+            Seat = seat != null ? new SeatInfoDto
+            {
+                Id = seat.Id,
+                SeatCode = seat.SeatCode,
+                SeatRow = seat.SeatRow,
+                SeatNumber = seat.SeatNumber,
+                SeatTypeCode = seat.SeatTypeCode
+            } : null,
+
+            // Thông tin người mua vé
+            Buyer = user != null ? new BuyerInfoDto
+            {
+                Id = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                Phone = user.Phone
+            } : null,
+
             OrderTicket = eTicket.OrderTicket != null ? new Shared.DTOs.Order.OrderTicketDetailDto
             {
                 Id = eTicket.OrderTicket.Id,
@@ -217,13 +362,14 @@ public class ETicketService
                         Status = eTicket.OrderTicket.Showtime.Movie.Status.ToString(),
                         CreatedAt = eTicket.OrderTicket.Showtime.Movie.CreatedAt
                     } : null!,
-                    Screen = eTicket.OrderTicket.Showtime.Screen != null ? new Shared.DTOs.Screen.ScreenResponseDto
+                    Screen = screen != null ? new Shared.DTOs.Screen.ScreenResponseDto
                     {
-                        Id = eTicket.OrderTicket.Showtime.Screen.Id,
-                        CinemaId = eTicket.OrderTicket.Showtime.Screen.CinemaId,
-                        Name = eTicket.OrderTicket.Showtime.Screen.Name,
-                        TotalSeats = eTicket.OrderTicket.Showtime.Screen.TotalSeats,
-                        SeatMapLayout = eTicket.OrderTicket.Showtime.Screen.SeatMapLayout?.RootElement.GetRawText()
+                        Id = screen.Id,
+                        CinemaId = screen.CinemaId,
+                        CinemaName = cinema?.Name,
+                        Name = screen.Name,
+                        TotalSeats = screen.TotalSeats,
+                        SeatMapLayout = screen.SeatMapLayout?.RootElement.GetRawText()
                     } : null!
                 } : null,
                 Seat = eTicket.OrderTicket.Seat != null ? new Shared.DTOs.Seat.SeatResponseDto
