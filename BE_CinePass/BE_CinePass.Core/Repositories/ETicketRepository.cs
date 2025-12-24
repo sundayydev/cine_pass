@@ -18,9 +18,18 @@ public class ETicketRepository : BaseRepository<ETicket>, IETicketRepository
                 .ThenInclude(ot => ot.Showtime)
                     .ThenInclude(st => st.Movie)
             .Include(et => et.OrderTicket)
+                .ThenInclude(ot => ot.Showtime)
+                    .ThenInclude(st => st.Screen)
+                        .ThenInclude(sc => sc.Cinema)
+            .Include(et => et.OrderTicket)
                 .ThenInclude(ot => ot.Seat)
             .Include(et => et.OrderTicket)
                 .ThenInclude(ot => ot.Order)
+                    .ThenInclude(o => o.User)
+            .Include(et => et.OrderTicket)
+                .ThenInclude(ot => ot.Order)
+                    .ThenInclude(o => o.OrderProducts)
+                        .ThenInclude(op => op.Product)
             .FirstOrDefaultAsync(et => et.TicketCode == ticketCode, cancellationToken);
     }
 
@@ -40,10 +49,16 @@ public class ETicketRepository : BaseRepository<ETicket>, IETicketRepository
             .Include(et => et.OrderTicket)
                 .ThenInclude(ot => ot.Showtime)
                     .ThenInclude(st => st.Screen)
+                        .ThenInclude(sc => sc.Cinema)
             .Include(et => et.OrderTicket)
                 .ThenInclude(ot => ot.Seat)
             .Include(et => et.OrderTicket)
                 .ThenInclude(ot => ot.Order)
+                    .ThenInclude(o => o.User)
+            .Include(et => et.OrderTicket)
+                .ThenInclude(ot => ot.Order)
+                    .ThenInclude(o => o.OrderProducts)
+                        .ThenInclude(op => op.Product)
             .FirstOrDefaultAsync(et => et.QrData == qrData, cancellationToken);
     }
 
