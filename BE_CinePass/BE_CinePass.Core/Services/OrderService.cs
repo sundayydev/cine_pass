@@ -91,6 +91,9 @@ public class OrderService
             ExpireAt = DateTime.UtcNow.AddMinutes(15) // 15 minutes to complete payment
         };
 
+        // Add order first to generate Id
+        await _orderRepository.AddAsync(order, cancellationToken);
+
         decimal totalAmount = 0;
 
         // Process tickets
@@ -153,7 +156,6 @@ public class OrderService
 
         order.TotalAmount = totalAmount;
 
-        await _orderRepository.AddAsync(order, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         return MapToResponseDto(order);

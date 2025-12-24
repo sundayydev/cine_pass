@@ -1,6 +1,7 @@
 using BE_CinePass.Core.Services;
 using BE_CinePass.Shared.DTOs.Momo;
 using BE_CinePass.Shared.Common;
+using BE_CinePass.Shared.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -54,8 +55,8 @@ public class MomoPaymentController : ControllerBase
             }
 
             // Kiểm tra order có thuộc về user hiện tại không
-            var currentUserIdStr = User.FindFirst("UserId")?.Value;
-            if (string.IsNullOrEmpty(currentUserIdStr) || !Guid.TryParse(currentUserIdStr, out var currentUserId))
+            var currentUserId = User.GetUserId();
+            if (currentUserId == null)
             {
                 return Unauthorized();
             }
@@ -109,10 +110,20 @@ public class MomoPaymentController : ControllerBase
                 });
             }
 
-            // Cập nhật transaction với thông tin từ Momo
-            await _paymentTransactionService.UpdateTransactionIdAsync(
+            // Cập nhật transaction với thông tin từ Momo (bao gồm momoOrderId)
+            var responseData = new
+            {
+                momoOrderId = momoResponse.OrderId, // This is the ORDER_{guid}_{timestamp} format
+                requestId = momoResponse.RequestId,
+                payUrl = momoResponse.PayUrl,
+                deeplink = momoResponse.Deeplink,
+                qrCodeUrl = momoResponse.QrCodeUrl
+            };
+            
+            await _paymentTransactionService.UpdateTransactionWithResponseAsync(
                 transaction.Id,
-                momoResponse.RequestId
+                momoResponse.RequestId,
+                System.Text.Json.JsonSerializer.Serialize(responseData)
             );
 
             _logger.LogInformation("Momo payment created successfully for Order #{OrderId}", request.OrderId);
@@ -260,21 +271,43 @@ public class MomoPaymentController : ControllerBase
     /// <summary>
     /// Truy vấn trạng thái giao dịch
     /// </summary>
-    [HttpGet("query/{orderId}")]
-    [Authorize]
-    public async Task<ActionResult<MomoPaymentResponse>> QueryTransaction(string orderId, [FromQuery] string requestId)
+   [HttpGet("query/{orderId}")]
+[Authorize]
+public async Task<ActionResult<MomoPaymentResponse>> QueryTransaction(
+    string orderId, 
+    [FromQuery] string? requestId = null)  // Cho phép null
+{
+    try
     {
-        try
+        if (string.IsNullOrEmpty(requestId))
         {
-            var result = await _momoService.QueryTransactionAsync(orderId, requestId);
-            return Ok(result);
+            _logger.LogWarning("QueryTransaction called without requestId for orderId: {OrderId}", orderId);
+            return BadRequest(new { message = "requestId là bắt buộc để truy vấn chính xác trạng thái từ MoMo" });
         }
-        catch (Exception ex)
+
+        // Lấy momoOrderId từ PaymentTransaction
+        var transaction = await _paymentTransactionService.GetByTransactionIdAsync(requestId);
+        if (transaction == null)
         {
-            _logger.LogError(ex, "Error querying Momo transaction");
-            return StatusCode(500, new { message = "Có lỗi xảy ra khi truy vấn giao dịch" });
+            return NotFound(new { message = "Giao dịch đã hết hạn hoặc không tồn tại." });
         }
+
+        var momoOrderId = await _paymentTransactionService.GetMomoOrderIdAsync(transaction.Id);
+        if (string.IsNullOrEmpty(momoOrderId))
+        {
+            _logger.LogError("MomoOrderId not found for transaction {TransactionId}", transaction.Id);
+            return BadRequest(new { message = "Không tìm thấy thông tin OrderId từ Momo" });
+        }
+
+        var result = await _momoService.QueryTransactionAsync(momoOrderId, requestId);
+        return Ok(result);
     }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error querying Momo transaction");
+        return StatusCode(500, new { message = "Có lỗi xảy ra khi truy vấn giao dịch" });
+    }
+}
 
     /// <summary>
     /// Lấy thông tin cấu hình Momo (for debugging)
