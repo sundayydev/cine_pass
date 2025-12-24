@@ -119,6 +119,55 @@ public class PaymentTransactionService
         return MapToResponseDto(transaction);
     }
 
+    public async Task<PaymentTransactionResponseDto?> UpdateTransactionWithResponseAsync(
+        Guid id,
+        string transactionId,
+        string responseJsonString,
+        CancellationToken cancellationToken = default)
+    {
+        var transaction = await _paymentTransactionRepository.GetByIdAsync(id, cancellationToken);
+        if (transaction == null)
+            return null;
+
+        transaction.ProviderTransId = transactionId;
+        
+        try
+        {
+            transaction.ResponseJson = JsonDocument.Parse(responseJsonString);
+        }
+        catch
+        {
+            // If JSON parsing fails, keep existing ResponseJson
+        }
+
+        _paymentTransactionRepository.Update(transaction);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return MapToResponseDto(transaction);
+    }
+
+    public async Task<string?> GetMomoOrderIdAsync(Guid transactionId, CancellationToken cancellationToken = default)
+    {
+        var transaction = await _paymentTransactionRepository.GetByIdAsync(transactionId, cancellationToken);
+        if (transaction?.ResponseJson == null)
+            return null;
+
+        try
+        {
+            var root = transaction.ResponseJson.RootElement;
+            if (root.TryGetProperty("momoOrderId", out var momoOrderIdElement))
+            {
+                return momoOrderIdElement.GetString();
+            }
+        }
+        catch
+        {
+            // JSON parsing error
+        }
+
+        return null;
+    }
+
 
     private static PaymentTransactionResponseDto MapToResponseDto(PaymentTransaction transaction)
     {

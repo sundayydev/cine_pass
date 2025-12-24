@@ -44,12 +44,19 @@ public class SeatRepository : BaseRepository<Seat>, ISeatRepository
     }
 
     public async Task<bool> IsSeatAvailableAsync(Guid seatId, Guid showtimeId, CancellationToken cancellationToken = default)
-    {
-        return !await _context.OrderTickets
-            .AnyAsync(ot => ot.SeatId == seatId &&
-                           ot.ShowtimeId == showtimeId &&
-                           ot.Order.Status == OrderStatus.Confirmed, cancellationToken);
-    }
+{
+    var now = DateTime.UtcNow;
+    
+    // Ghế không available nếu:
+    // 1. Thuộc order đã Confirmed
+    // 2. Thuộc order đang Pending và chưa hết hạn
+    return !await _context.OrderTickets
+        .AnyAsync(ot => ot.SeatId == seatId &&
+                       ot.ShowtimeId == showtimeId &&
+                       (ot.Order.Status == OrderStatus.Confirmed ||
+                        (ot.Order.Status == OrderStatus.Pending && ot.Order.ExpireAt > now)),
+                       cancellationToken);
+}    
 
     /// <summary>
     /// Tìm ghế theo mã QR ordering (dùng cho tính năng order đồ ăn từ ghế)

@@ -3,6 +3,7 @@ using BE_CinePass.Core.Repositories;
 using BE_CinePass.Core.Services;
 using BE_CinePass.Shared.Common;
 using BE_CinePass.Shared.Settings;
+using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -139,6 +140,7 @@ builder.Services.AddScoped<PaymentTransactionRepository>();
 builder.Services.AddScoped<MemberPointRepository>();
 builder.Services.AddScoped<ActorRepository>();
 builder.Services.AddScoped<MovieActorRepository>();
+builder.Services.AddScoped<MovieReviewRepository>();
 
 // =======================
 // Services
@@ -162,6 +164,7 @@ builder.Services.AddScoped<SeatHoldService>();
 builder.Services.AddScoped<CloudinaryService>();
 builder.Services.AddScoped<MomoPaymentService>();
 builder.Services.AddScoped<SeatFoodOrderService>();
+builder.Services.AddScoped<MovieReviewService>();
 
 // HttpClient Factory cho Momo và các external APIs
 builder.Services.AddHttpClient();
