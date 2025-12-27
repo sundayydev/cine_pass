@@ -157,7 +157,15 @@ builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<ETicketService>();
 builder.Services.AddScoped<PaymentTransactionService>();
+
+// Membership & Voucher System Services
+builder.Services.AddScoped<MemberTierConfigService>();
+builder.Services.AddScoped<PointHistoryService>();
+builder.Services.AddScoped<VoucherService>();
+builder.Services.AddScoped<UserVoucherService>();
 builder.Services.AddScoped<MemberPointService>();
+
+// Other Services
 builder.Services.AddScoped<ActorService>();
 builder.Services.AddScoped<MovieActorService>();
 builder.Services.AddScoped<SeatHoldService>();

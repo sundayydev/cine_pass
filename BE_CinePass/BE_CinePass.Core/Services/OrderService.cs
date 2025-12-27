@@ -22,6 +22,9 @@ public class OrderService
     private readonly PaymentTransactionRepository _paymentTransactionRepository;
     private readonly ETicketService _eTicketService;
     private readonly ApplicationDbContext _context;
+    private readonly UserVoucherService _userVoucherService;
+    private readonly MemberPointService _memberPointService;
+    private readonly PointHistoryService _pointHistoryService;
 
     public OrderService(
         OrderRepository orderRepository,
@@ -34,7 +37,10 @@ public class OrderService
         UserRepository userRepository,
         PaymentTransactionRepository paymentTransactionRepository,
         ETicketService eTicketService,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        UserVoucherService userVoucherService,
+        MemberPointService memberPointService,
+        PointHistoryService pointHistoryService)
     {
         _orderRepository = orderRepository;
         _orderTicketRepository = orderTicketRepository;
@@ -47,6 +53,9 @@ public class OrderService
         _paymentTransactionRepository = paymentTransactionRepository;
         _eTicketService = eTicketService;
         _context = context;
+        _userVoucherService = userVoucherService;
+        _memberPointService = memberPointService;
+        _pointHistoryService = pointHistoryService;
     }
 
 
@@ -154,7 +163,11 @@ public class OrderService
             totalAmount += product.Price * productItem.Quantity;
         }
 
+        // Tính tổng tiền order
         order.TotalAmount = totalAmount;
+        order.FinalAmount = totalAmount; // Mặc định = TotalAmount, sẽ update khi apply voucher
+        order.DiscountAmount = 0;
+        order.UserVoucherId = null;
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -188,8 +201,32 @@ public class OrderService
         if (order.Status != Domain.Common.OrderStatus.Pending)
             throw new InvalidOperationException("Only pending orders can be confirmed");
 
+        // Xác nhận order sau khi thanh toán thành công
         order.Status = Domain.Common.OrderStatus.Confirmed;
         order.ExpireAt = null;
+        
+        // Đánh dấu voucher đã sử dụng
+        if (order.UserVoucherId.HasValue)
+        {
+            await _userVoucherService.MarkAsUsedAsync(order.UserVoucherId.Value, orderId, cancellationToken);
+        }
+        
+        // Tích điểm cho user
+        if (order.UserId.HasValue)
+        {
+            var (basePoints, bonusPoints, totalPoints) = await _memberPointService
+                .AddPointsFromOrderAsync(order.UserId.Value, order.FinalAmount, cancellationToken);
+            
+            await _pointHistoryService.CreateAsync(new PointHistory
+            {
+                UserId = order.UserId.Value,
+                Points = totalPoints,
+                Type = Domain.Common.PointHistoryType.Purchase,
+                OrderId = orderId,
+                Description = $"Tích {basePoints} điểm (+ {bonusPoints} điểm thưởng) từ đơn hàng",
+                ExpiresAt = DateTime.UtcNow.AddMonths(12)
+            }, cancellationToken);
+        }
 
         _orderRepository.Update(order);
         await _context.SaveChangesAsync(cancellationToken);
@@ -423,6 +460,74 @@ public class OrderService
 
         return response;
     }
+    
+    /// <summary>
+    /// Áp dụng voucher vào order
+    /// </summary>
+    public async Task<OrderResponseDto> ApplyVoucherAsync(
+        Guid orderId, 
+        Guid userVoucherId, 
+        CancellationToken cancellationToken = default)
+    {
+        var order = await _orderRepository.GetByIdAsync(orderId, cancellationToken);
+        if (order == null)
+            throw new InvalidOperationException("Order không tồn tại");
+            
+        if (order.Status != Domain.Common.OrderStatus.Pending)
+            throw new InvalidOperationException("Chỉ có thể áp dụng voucher cho order đang chờ thanh toán");
+            
+        // Validate voucher
+        var (isValid, errorMessage) = await _userVoucherService
+            .ValidateVoucherUsageAsync(userVoucherId, order.TotalAmount, cancellationToken);
+            
+        if (!isValid)
+            throw new InvalidOperationException(errorMessage ?? "Voucher không hợp lệ");
+            
+        // Get voucher để tính discount
+        var userVoucher = await _context.UserVouchers
+            .Include(uv => uv.Voucher)
+            .FirstOrDefaultAsync(uv => uv.Id == userVoucherId, cancellationToken);
+            
+        if (userVoucher == null)
+            throw new InvalidOperationException("User voucher không tồn tại");
+            
+        // Tính discount
+        var discount = _userVoucherService.CalculateDiscount(userVoucher, order.TotalAmount);
+        
+        // Update order
+        order.UserVoucherId = userVoucherId;
+        order.DiscountAmount = discount;
+        order.FinalAmount = order.TotalAmount - discount;
+        
+        _orderRepository.Update(order);
+        await _context.SaveChangesAsync(cancellationToken);
+        
+        return MapToResponseDto(order);
+    }
+    
+    /// <summary>
+    /// Xóa voucher khỏi order
+    /// </summary>
+    public async Task<OrderResponseDto> RemoveVoucherAsync(
+        Guid orderId, 
+        CancellationToken cancellationToken = default)
+    {
+        var order = await _orderRepository.GetByIdAsync(orderId, cancellationToken);
+        if (order == null)
+            throw new InvalidOperationException("Order không tồn tại");
+            
+        if (order.Status != Domain.Common.OrderStatus.Pending)
+            throw new InvalidOperationException("Chỉ có thể xóa voucher khỏi order đang chờ thanh toán");
+            
+        order.UserVoucherId = null;
+        order.DiscountAmount = 0;
+        order.FinalAmount = order.TotalAmount;
+        
+        _orderRepository.Update(order);
+        await _context.SaveChangesAsync(cancellationToken);
+        
+        return MapToResponseDto(order);
+    }
 
     private static OrderResponseDto MapToResponseDto(Order order)
     {
@@ -431,6 +536,9 @@ public class OrderService
             Id = order.Id,
             UserId = order.UserId,
             TotalAmount = order.TotalAmount,
+            UserVoucherId = order.UserVoucherId,
+            DiscountAmount = order.DiscountAmount,
+            FinalAmount = order.FinalAmount,
             Status = order.Status.ToString(),
             PaymentMethod = order.PaymentMethod,
             CreatedAt = order.CreatedAt,

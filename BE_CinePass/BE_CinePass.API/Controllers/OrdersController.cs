@@ -256,5 +256,63 @@ public class OrdersController : ControllerBase
             return StatusCode(500, ApiResponseDto<List<OrderResponseDto>>.ErrorResult("Lỗi khi lấy danh sách đơn hàng hết hạn"));
         }
     }
+
+    /// <summary>
+    /// Áp dụng voucher vào order
+    /// </summary>
+    [HttpPost("{orderId}/apply-voucher")]
+    [ProducesResponseType(typeof(OrderResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OrderResponseDto>> ApplyVoucher(
+        Guid orderId,
+        [FromBody] ApplyVoucherDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponseDto<OrderResponseDto>.ErrorResult("Dữ liệu không hợp lệ"));
+
+            var order = await _orderService.ApplyVoucherAsync(orderId, dto.UserVoucherId, cancellationToken);
+            return Ok(ApiResponseDto<OrderResponseDto>.SuccessResult(order, "Áp dụng voucher thành công"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponseDto<OrderResponseDto>.ErrorResult(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error applying voucher to order {OrderId}", orderId);
+            return StatusCode(500, ApiResponseDto<OrderResponseDto>.ErrorResult("Lỗi khi áp dụng voucher"));
+        }
+    }
+
+    /// <summary>
+    /// Xóa voucher khỏi order
+    /// </summary>
+    [HttpDelete("{orderId}/remove-voucher")]
+    [ProducesResponseType(typeof(OrderResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<OrderResponseDto>> RemoveVoucher(
+        Guid orderId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var order = await _orderService.RemoveVoucherAsync(orderId, cancellationToken);
+            return Ok(ApiResponseDto<OrderResponseDto>.SuccessResult(order, "Xóa voucher thành công"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponseDto<OrderResponseDto>.ErrorResult(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing voucher from order {OrderId}", orderId);
+            return StatusCode(500, ApiResponseDto<OrderResponseDto>.ErrorResult("Lỗi khi xóa voucher"));
+        }
+    }
 }
 
