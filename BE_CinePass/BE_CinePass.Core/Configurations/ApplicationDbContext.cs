@@ -27,11 +27,18 @@ public class ApplicationDbContext : DbContext
     public DbSet<ETicket> ETickets { get; set; }
     public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
     public DbSet<MemberPoint> MemberPoints { get; set; }
+    public DbSet<MemberTierConfig> MemberTierConfigs { get; set; }
+    public DbSet<PointHistory> PointHistories { get; set; }
+    public DbSet<Voucher> Vouchers { get; set; }
+    public DbSet<UserVoucher> UserVouchers { get; set; }
     public DbSet<Actor> Actors { get; set; }
     public DbSet<MovieActor> MovieActors { get; set; }
     public DbSet<MovieReview> MovieReviews { get; set; }
     public DbSet<Reward> Rewards { get; set; }
-    public DbSet<PointHistory> PointHistories { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<NotificationSettings> NotificationSettings { get; set; }
+    
+
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -206,6 +213,120 @@ public class ApplicationDbContext : DbContext
                 .HasColumnType("numeric(12,2)");
             entity.Property(e => e.ResponseJson)
                 .HasColumnType("jsonb");
+        });
+
+        // Configure MemberPoint
+        modelBuilder.Entity<MemberPoint>(entity =>
+        {
+            entity.HasIndex(e => e.UserId).IsUnique();
+            entity.Property(e => e.Tier)
+                .HasConversion(
+                    v => v.ToString().ToLower(),
+                    v => Enum.Parse<MemberTier>(v, true))
+                .HasMaxLength(20);
+        });
+
+        // Configure MemberTierConfig
+        modelBuilder.Entity<MemberTierConfig>(entity =>
+        {
+            entity.HasIndex(e => e.Tier).IsUnique();
+            entity.Property(e => e.Tier)
+                .HasConversion(
+                    v => v.ToString().ToLower(),
+                    v => Enum.Parse<MemberTier>(v, true))
+                .HasMaxLength(20);
+            entity.Property(e => e.PointMultiplier)
+                .HasColumnType("numeric(3,2)");
+            entity.Property(e => e.DiscountPercentage)
+                .HasColumnType("numeric(5,2)");
+            entity.Property(e => e.Benefits)
+                .HasColumnType("jsonb");
+        });
+
+        // Configure PointHistory
+        modelBuilder.Entity<PointHistory>(entity =>
+        {
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.Property(e => e.Type)
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToString().ToLower() : null,
+                    v => !string.IsNullOrEmpty(v) ? Enum.Parse<PointHistoryType>(v, true) : (PointHistoryType?)null)
+                .HasMaxLength(20);
+        });
+
+        // Configure Voucher
+        modelBuilder.Entity<Voucher>(entity =>
+        {
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.Property(e => e.Type)
+                .HasConversion(
+                    v => v.ToString().ToLower(),
+                    v => Enum.Parse<VoucherType>(v, true))
+                .HasMaxLength(20);
+            entity.Property(e => e.Status)
+                .HasConversion(
+                    v => v.ToString().ToLower(),
+                    v => Enum.Parse<VoucherStatus>(v, true))
+                .HasMaxLength(20);
+            entity.Property(e => e.MinTier)
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToString().ToLower() : null,
+                    v => !string.IsNullOrEmpty(v) ? Enum.Parse<MemberTier>(v, true) : (MemberTier?)null)
+                .HasMaxLength(20);
+            entity.Property(e => e.DiscountValue)
+                .HasColumnType("numeric(12,2)");
+            entity.Property(e => e.MaxDiscountAmount)
+                .HasColumnType("numeric(12,2)");
+            entity.Property(e => e.MinOrderAmount)
+                .HasColumnType("numeric(12,2)");
+        });
+
+        // Configure UserVoucher
+        modelBuilder.Entity<UserVoucher>(entity =>
+        {
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.VoucherId);
+            entity.HasIndex(e => new { e.UserId, e.IsUsed });
+
+            entity.HasOne(uv => uv.User)
+                .WithMany()
+                .HasForeignKey(uv => uv.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(uv => uv.Voucher)
+                .WithMany(v => v.UserVouchers)
+                .HasForeignKey(uv => uv.VoucherId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(uv => uv.Order)
+                .WithOne()
+                .HasForeignKey<UserVoucher>(uv => uv.OrderId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Configure Notification
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => new { e.UserId, e.IsRead });
+            
+            entity.HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Configure NotificationSettings
+        modelBuilder.Entity<NotificationSettings>(entity =>
+        {
+            entity.HasIndex(e => e.UserId).IsUnique();
+            
+            entity.HasOne(ns => ns.User)
+                .WithOne()
+                .HasForeignKey<NotificationSettings>(ns => ns.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

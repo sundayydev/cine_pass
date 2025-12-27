@@ -250,7 +250,7 @@ public class MoviesController : ControllerBase
             var result = await _movieService
                 .GetCinemasWithShowtimesAsync(id, date, cancellationToken);
 
-            // ✅ KHÔNG có suất chiếu ≠ lỗi
+            // KHÔNG có suất chiếu ≠ lỗi
             if (result == null)
             {
                 return Ok(ApiResponseDto<MovieCinemasWithShowtimesResponseDto>

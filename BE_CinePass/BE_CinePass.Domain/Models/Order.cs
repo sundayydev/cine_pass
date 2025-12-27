@@ -17,6 +17,15 @@ public class Order
     [Column("total_amount", TypeName = "numeric(12,2)")]
     public decimal TotalAmount { get; set; } = 0;
 
+    [Column("user_voucher_id")]
+    public Guid? UserVoucherId { get; set; } // Voucher được áp dụng cho order này
+
+    [Column("discount_amount", TypeName = "numeric(12,2)")]
+    public decimal DiscountAmount { get; set; } = 0; // Số tiền giảm giá từ voucher
+
+    [Column("final_amount", TypeName = "numeric(12,2)")]
+    public decimal FinalAmount { get; set; } = 0; // Tổng tiền sau khi giảm giá
+
     [Required]
     [Column("status")]
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
@@ -37,6 +46,9 @@ public class Order
     // Navigation properties
     [ForeignKey(nameof(UserId))]
     public virtual User? User { get; set; }
+
+    [ForeignKey(nameof(UserVoucherId))]
+    public virtual UserVoucher? UserVoucher { get; set; }
 
     public virtual ICollection<OrderTicket> OrderTickets { get; set; } = new List<OrderTicket>();
     public virtual ICollection<OrderProduct> OrderProducts { get; set; } = new List<OrderProduct>();
