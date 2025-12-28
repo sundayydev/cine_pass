@@ -140,6 +140,8 @@ public class MovieService
         DateTime? date = null,
         CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
+        
         var query = _context.Showtimes
             .AsNoTracking()
             .Include(s => s.Screen)
@@ -156,15 +158,17 @@ public class MovieService
 
             var nextDateUtc = dateUtc.AddDays(1);
 
+            // Lọc theo ngày và chỉ lấy suất chiếu chưa qua
             query = query.Where(s =>
                 s.StartTime >= dateUtc &&
-                s.StartTime < nextDateUtc
+                s.StartTime < nextDateUtc &&
+                s.StartTime > now  // Chỉ lấy suất chiếu trong tương lai
             );
         }
         else
         {
-            var todayUtc = DateTime.UtcNow.Date;
-            query = query.Where(s => s.StartTime >= todayUtc);
+            // Lấy tất cả suất chiếu từ giờ hiện tại trở đi
+            query = query.Where(s => s.StartTime > now);
         }
 
 
@@ -210,6 +214,9 @@ public class MovieService
             MovieId = movieId,
             MovieTitle = movie.Title,
             PosterUrl = movie.PosterUrl,
+            Category = movie.Category.ToString(),
+            DurationMinutes = movie.DurationMinutes,
+            AgeLimit = movie.AgeLimit,
             Cinemas = grouped
         };
     }

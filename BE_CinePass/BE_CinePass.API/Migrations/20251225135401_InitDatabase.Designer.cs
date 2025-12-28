@@ -5,6 +5,7 @@ using System.Text.Json;
 using BE_CinePass.Core.Configurations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -13,9 +14,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace BE_CinePass.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251225135401_InitDatabase")]
+    partial class InitDatabase
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -438,127 +441,6 @@ namespace BE_CinePass.API.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("movie_reviews");
-                });
-
-            modelBuilder.Entity("BE_CinePass.Domain.Models.Notification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ActionData")
-                        .HasColumnType("text")
-                        .HasColumnName("action_data");
-
-                    b.Property<int?>("ActionType")
-                        .HasColumnType("integer")
-                        .HasColumnName("action_type");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Data")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("data");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("expires_at");
-
-                    b.Property<string>("ImageUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("image_url");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_read");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("message");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("integer")
-                        .HasColumnName("priority");
-
-                    b.Property<DateTime?>("ReadAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("read_at");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("title");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("UserId", "IsRead");
-
-                    b.ToTable("notifications");
-                });
-
-            modelBuilder.Entity("BE_CinePass.Domain.Models.NotificationSettings", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<bool>("EnableOrderStatus")
-                        .HasColumnType("boolean")
-                        .HasColumnName("enable_order_status");
-
-                    b.Property<bool>("EnablePromotion")
-                        .HasColumnType("boolean")
-                        .HasColumnName("enable_promotion");
-
-                    b.Property<bool>("EnableSystem")
-                        .HasColumnType("boolean")
-                        .HasColumnName("enable_system");
-
-                    b.Property<bool>("EnableUpcomingShowtime")
-                        .HasColumnType("boolean")
-                        .HasColumnName("enable_upcoming_showtime");
-
-                    b.Property<int>("ShowtimeReminderMinutes")
-                        .HasColumnType("integer")
-                        .HasColumnName("showtime_reminder_minutes");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.ToTable("notification_settings");
                 });
 
             modelBuilder.Entity("BE_CinePass.Domain.Models.Order", b =>
@@ -1256,27 +1138,6 @@ namespace BE_CinePass.API.Migrations
                         .HasForeignKey("UserId");
 
                     b.Navigation("Movie");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("BE_CinePass.Domain.Models.Notification", b =>
-                {
-                    b.HasOne("BE_CinePass.Domain.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("BE_CinePass.Domain.Models.NotificationSettings", b =>
-                {
-                    b.HasOne("BE_CinePass.Domain.Models.User", "User")
-                        .WithOne()
-                        .HasForeignKey("BE_CinePass.Domain.Models.NotificationSettings", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("User");
                 });
