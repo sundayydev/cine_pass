@@ -1,11 +1,12 @@
 
+
 using BE_CinePass.Shared.Common;
 
 namespace BE_CinePass.Shared.DTOs.Notification
 {
     public class CreateNotificationDto
     {
-        public string? UserId { get; set; } // NULL = broadcast to all
+        public Guid? UserId { get; set; } // NULL = broadcast to all?
         public NotificationType Type { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;

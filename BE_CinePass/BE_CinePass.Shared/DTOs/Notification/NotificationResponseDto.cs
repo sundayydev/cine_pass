@@ -2,8 +2,8 @@ namespace BE_CinePass.Shared.DTOs.Notification
 {
     public class NotificationResponseDto
     {
-        public string Id { get; set; } = string.Empty;
-        public string? UserId { get; set; }
+        public Guid? Id { get; set; }
+        public Guid? UserId { get; set; }
         public string Type { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;

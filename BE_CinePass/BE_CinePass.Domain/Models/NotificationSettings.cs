@@ -12,7 +12,7 @@ public class NotificationSettings
 
     [Required]
     [Column("user_id")]
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
 
     [Column("enable_upcoming_showtime")]
     public bool EnableUpcomingShowtime { get; set; } = true;
@@ -25,7 +25,9 @@ public class NotificationSettings
 
     [Column("enable_system")]
     public bool EnableSystem { get; set; } = true;
-
+    
+    [Column("push_enable")]
+    public bool PushEnabled { get; set; } = true;
     [Column("showtime_reminder_minutes")]
     public int ShowtimeReminderMinutes { get; set; } = 120;
 

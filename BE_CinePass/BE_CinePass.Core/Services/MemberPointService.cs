@@ -1,6 +1,7 @@
 using BE_CinePass.Core.Configurations;
 using BE_CinePass.Core.Repositories;
 using BE_CinePass.Domain.Common;
+using BE_CinePass.Domain.Events;
 using BE_CinePass.Domain.Models;
 using BE_CinePass.Shared.DTOs.MemberPoint;
 using Microsoft.EntityFrameworkCore;
@@ -12,15 +13,18 @@ public class MemberPointService
     private readonly MemberPointRepository _memberPointRepository;
     private readonly ApplicationDbContext _context;
     private readonly MemberTierConfigService _tierConfigService;
+    private readonly IEventBus _eventBus;
 
     public MemberPointService(
         MemberPointRepository memberPointRepository, 
         ApplicationDbContext context,
-        MemberTierConfigService tierConfigService)
+        MemberTierConfigService tierConfigService,
+        IEventBus eventBus)
     {
         _memberPointRepository = memberPointRepository;
         _context = context;
         _tierConfigService = tierConfigService;
+        _eventBus = eventBus;
     }
 
     /// <summary>
@@ -169,7 +173,15 @@ public class MemberPointService
              _memberPointRepository.Update(memberPoint); // Đảm bảo đối tượng được theo dõi/cập nhật
         
         await _context.SaveChangesAsync(cancellationToken);
-
+        await _eventBus.PublishAsync(new PointsEarnedEvent
+        {
+            UserId = userId,
+            PointsEarned = totalPoints,
+            BasePoints = basePoints,
+            BonusPoints = bonusPoints,
+            NewTotalPoints = memberPoint.Points,
+            Source = "Order"
+        });
         return (basePoints, bonusPoints, totalPoints);
     }
 
