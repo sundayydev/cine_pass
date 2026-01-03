@@ -96,6 +96,7 @@ public class OrderService
             UserId = dto.UserId,
             Status = Domain.Common.OrderStatus.Pending,
             PaymentMethod = dto.PaymentMethod,
+            Note = dto.Note, // Ghi chú từ FE: SEAT-ORDER hoặc PRO-ORDER
             CreatedAt = DateTime.UtcNow,
             ExpireAt = DateTime.UtcNow.AddMinutes(15) // 15 minutes to complete payment
         };
@@ -230,6 +231,33 @@ public class OrderService
 
         _orderRepository.Update(order);
         await _context.SaveChangesAsync(cancellationToken);
+
+        // TẠO E-TICKETS CHO MỖI ORDER TICKET
+        // Lấy danh sách OrderTickets của order này
+        var orderTickets = await _context.OrderTickets
+            .Where(ot => ot.OrderId == orderId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var orderTicket in orderTickets)
+        {
+            try
+            {
+                // Kiểm tra xem ETicket đã tồn tại chưa
+                var existingTickets = await _context.ETickets
+                    .Where(e => e.OrderTicketId == orderTicket.Id)
+                    .AnyAsync(cancellationToken);
+
+                if (!existingTickets)
+                {
+                    await _eTicketService.GenerateETicketAsync(orderTicket.Id, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error nhưng không throw để không ảnh hưởng confirm order
+                Console.WriteLine($"Error generating e-ticket for orderTicket {orderTicket.Id}: {ex.Message}");
+            }
+        }
 
         return true;
     }
@@ -541,6 +569,7 @@ public class OrderService
             FinalAmount = order.FinalAmount,
             Status = order.Status.ToString(),
             PaymentMethod = order.PaymentMethod,
+            Note = order.Note,
             CreatedAt = order.CreatedAt,
             ExpireAt = order.ExpireAt
         };

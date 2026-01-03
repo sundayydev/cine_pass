@@ -24,7 +24,7 @@ public class MemberPointService
     }
 
     /// <summary>
-    /// Get member point profile with full tier information
+    /// Lấy thông tin điểm thành viên cùng với đầy đủ thông tin cấp bậc
     /// </summary>
     public async Task<MemberPointResponseDto?> GetProfileAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -65,7 +65,7 @@ public class MemberPointService
 
     public async Task<MemberPointResponseDto> CreateAsync(Guid userId, int initialPoints = 0, CancellationToken cancellationToken = default)
     {
-        // Check if user already has member points
+        // Kiểm tra xem người dùng đã có điểm thành viên chưa
         if (await _memberPointRepository.ExistsAsync(userId, cancellationToken))
             throw new InvalidOperationException($"User {userId} already has member points");
 
@@ -86,7 +86,7 @@ public class MemberPointService
     }
 
     /// <summary>
-    /// Add points and lifetime points, automatically upgrade tier if needed
+    /// Cộng điểm và điểm trọn đời, tự động nâng cấp bậc nếu cần
     /// </summary>
     public async Task<MemberPointResponseDto?> AddPointsAsync(
         Guid userId, 
@@ -103,7 +103,7 @@ public class MemberPointService
         if (addToLifetime)
         {
             memberPoint.LifetimePoints += points;
-            // Check for tier upgrade
+            // Kiểm tra để nâng cấp bậc
             await UpdateMemberTierAsync(memberPoint, cancellationToken);
         }
         
@@ -116,7 +116,7 @@ public class MemberPointService
     }
 
     /// <summary>
-    /// Add points from order with tier-based multiplier
+    /// Cộng điểm từ đơn hàng theo hệ số nhân dựa trên cấp bậc
     /// </summary>
     public async Task<(int BasePoints, int BonusPoints, int TotalPoints)> AddPointsFromOrderAsync(
         Guid userId,
@@ -124,14 +124,35 @@ public class MemberPointService
         CancellationToken cancellationToken = default)
     {
         var memberPoint = await _memberPointRepository.GetByUserIdAsync(userId, cancellationToken);
+        
+        // Tự động tạo MemberPoint nếu chưa tồn tại
         if (memberPoint == null)
-            throw new InvalidOperationException("Member point not found for user");
+        {
+            memberPoint = new MemberPoint
+            {
+                UserId = userId,
+                Points = 0,
+                LifetimePoints = 0,
+                Tier = MemberTier.Bronze,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            await _memberPointRepository.AddAsync(memberPoint, cancellationToken);
+        }
 
         var tierConfig = await _tierConfigService.GetByTierAsync(memberPoint.Tier, cancellationToken);
         if (tierConfig == null)
-            throw new InvalidOperationException($"Tier configuration not found for {memberPoint.Tier}");
+        {
+            // Dự phòng trường hợp thiếu cấu hình tier (phòng ngừa)
+            // _context.Logger.LogWarning($"Tier configuration not found for {memberPoint.Tier}. Using default multiplier 1.0.");
+            tierConfig = new Shared.DTOs.MemberTierConfig.MemberTierConfigResponseDto
+            {
+                PointMultiplier = 1.0m,
+                Name = memberPoint.Tier.ToString()
+            };
+        }
 
-        // Calculate points: (orderAmount / 1000) * multiplier
+        // Tính điểm: (tổng tiền đơn hàng / 1000) * hệ số nhân
         var basePoints = (int)(orderAmount / 1000);
         var multiplier = tierConfig.PointMultiplier;
         var totalPoints = (int)(basePoints * multiplier);
@@ -141,10 +162,12 @@ public class MemberPointService
         memberPoint.LifetimePoints += totalPoints;
         memberPoint.UpdatedAt = DateTime.UtcNow;
 
-        // Check for tier upgrade
+        // Kiểm tra nâng hạng
         await UpdateMemberTierAsync(memberPoint, cancellationToken);
 
-        _memberPointRepository.Update(memberPoint);
+        if (_context.Entry(memberPoint).State == EntityState.Detached)
+             _memberPointRepository.Update(memberPoint); // Đảm bảo đối tượng được theo dõi/cập nhật
+        
         await _context.SaveChangesAsync(cancellationToken);
 
         return (basePoints, bonusPoints, totalPoints);
@@ -160,7 +183,7 @@ public class MemberPointService
             throw new InvalidOperationException("Insufficient points");
 
         memberPoint.Points -= points;
-        // Note: LifetimePoints is NOT reduced when redeeming vouchers
+        // Lưu ý: LifetimePoints KHÔNG bị trừ khi đổi voucher
         memberPoint.UpdatedAt = DateTime.UtcNow;
 
         _memberPointRepository.Update(memberPoint);
@@ -170,7 +193,7 @@ public class MemberPointService
     }
 
     /// <summary>
-    /// Automatically update member tier based on lifetime points
+    /// Tự động cập nhật cấp bậc thành viên dựa trên điểm trọn đời
     /// </summary>
     private async Task UpdateMemberTierAsync(MemberPoint memberPoint, CancellationToken cancellationToken)
     {
@@ -187,7 +210,7 @@ public class MemberPointService
             var oldTier = memberPoint.Tier;
             memberPoint.Tier = Enum.Parse<MemberTier>(newTierConfig.Tier);
             
-            // TODO: Send notification about tier upgrade
+            // TODO: Gửi thông báo về việc nâng cấp bậc
             Console.WriteLine($"User tier upgraded from {oldTier} to {memberPoint.Tier}");
         }
     }
@@ -198,7 +221,7 @@ public class MemberPointService
     {
         var tierConfig = await _tierConfigService.GetByTierAsync(memberPoint.Tier, cancellationToken);
         
-        // Calculate points to next tier
+        // Tính số điểm cần để lên hạng tiếp theo
         int? pointsToNextTier = null;
         string? nextTier = null;
         string? nextTierName = null;

@@ -72,4 +72,42 @@ public class MovieReviewsController : ControllerBase
             return StatusCode(500, ApiResponseDto<MovieReviewResponseDto>.ErrorResult("Lỗi khi tạo đánh giá"));
         }
     }
+    /// <summary>
+    /// Cập nhật đánh giá (yêu cầu đăng nhập và là người tạo)
+    /// </summary>
+    [HttpPut("{id}")]
+    [Authorize]
+    [ProducesResponseType(typeof(MovieReviewResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MovieReviewResponseDto>> Update(Guid id, [FromBody] MovieReviewUpdateDto dto, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponseDto<MovieReviewResponseDto>.ErrorResult("Dữ liệu không hợp lệ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()));
+
+            var userId = User.GetUserId();
+            if (!userId.HasValue)
+                return Unauthorized(ApiResponseDto<MovieReviewResponseDto>.ErrorResult("Không xác định được người dùng"));
+
+            var review = await _reviewService.UpdateAsync(id, userId.Value, dto, cancellationToken);
+            return Ok(ApiResponseDto<MovieReviewResponseDto>.SuccessResult(review, "Cập nhật đánh giá thành công"));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ApiResponseDto<MovieReviewResponseDto>.ErrorResult(ex.Message));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, ApiResponseDto<MovieReviewResponseDto>.ErrorResult(ex.Message));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating review {ReviewId}", id);
+            return StatusCode(500, ApiResponseDto<MovieReviewResponseDto>.ErrorResult("Lỗi khi cập nhật đánh giá"));
+        }
+    }
 }
