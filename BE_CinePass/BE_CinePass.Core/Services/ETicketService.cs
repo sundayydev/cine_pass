@@ -2,6 +2,7 @@ using BE_CinePass.Core.Repositories;
 using BE_CinePass.Core.Configurations;
 using BE_CinePass.Domain.Models;
 using BE_CinePass.Shared.DTOs.ETicket;
+using Microsoft.EntityFrameworkCore;
 
 namespace BE_CinePass.Core.Services;
 
@@ -42,6 +43,70 @@ public class ETicketService
         return eTickets.Select(MapToResponseDto).ToList();
     }
 
+    /// <summary>
+    /// Lấy tất cả vé của user trong 1 query duy nhất (tối ưu performance)
+    /// </summary>
+    public async Task<List<MyTicketDto>> GetMyTicketsAsync(Guid userId, bool upcomingOnly = false, CancellationToken cancellationToken = default)
+    {
+        var query = _context.ETickets
+            .Include(e => e.OrderTicket)
+                .ThenInclude(ot => ot.Order)
+            .Include(e => e.OrderTicket)
+                .ThenInclude(ot => ot.Showtime)
+                    .ThenInclude(s => s.Movie)
+            .Include(e => e.OrderTicket)
+                .ThenInclude(ot => ot.Showtime)
+                    .ThenInclude(s => s.Screen)
+                        .ThenInclude(sc => sc.Cinema)
+            .Include(e => e.OrderTicket)
+                .ThenInclude(ot => ot.Seat)
+            .Where(e => e.OrderTicket.Order.UserId == userId 
+                     && e.OrderTicket.Order.Status == Domain.Common.OrderStatus.Confirmed)
+            .AsQueryable();
+
+        // Nếu chỉ lấy vé sắp chiếu
+        if (upcomingOnly)
+        {
+            var now = DateTime.UtcNow;
+            query = query.Where(e => !e.IsUsed && e.OrderTicket.Showtime.StartTime > now);
+        }
+
+        var tickets = await query
+            .OrderByDescending(e => e.OrderTicket.Showtime.StartTime)
+            .Select(e => new MyTicketDto
+            {
+                Id = e.Id,
+                TicketCode = e.TicketCode,
+                QrData = e.QrData,
+                IsUsed = e.IsUsed,
+                UsedAt = e.UsedAt,
+                CreatedAt = e.OrderTicket.Order.CreatedAt,
+                
+                // Movie info
+                MovieTitle = e.OrderTicket.Showtime.Movie.Title,
+                MoviePosterUrl = e.OrderTicket.Showtime.Movie.PosterUrl,
+                MovieDurationMinutes = e.OrderTicket.Showtime.Movie.DurationMinutes,
+                MovieCategory = e.OrderTicket.Showtime.Movie.Category.ToString(),
+                MovieAgeLimit = e.OrderTicket.Showtime.Movie.AgeLimit,
+                
+                // Showtime info
+                ShowtimeStart = e.OrderTicket.Showtime.StartTime,
+                ShowtimeEnd = e.OrderTicket.Showtime.EndTime,
+                
+                // Cinema & Screen info
+                CinemaName = e.OrderTicket.Showtime.Screen.Cinema.Name,
+                CinemaAddress = e.OrderTicket.Showtime.Screen.Cinema.Address,
+                ScreenName = e.OrderTicket.Showtime.Screen.Name,
+                
+                // Seat info
+                SeatCode = e.OrderTicket.Seat.SeatCode,
+                SeatType = e.OrderTicket.Seat.SeatTypeCode
+            })
+            .ToListAsync(cancellationToken);
+
+        return tickets;
+    }
+
     public async Task<ETicketResponseDto> GenerateETicketAsync(Guid orderTicketId, CancellationToken cancellationToken = default)
     {
         // Validate order ticket exists
@@ -71,6 +136,48 @@ public class ETicketService
         await _context.SaveChangesAsync(cancellationToken);
 
         return MapToResponseDto(eTicket);
+    }
+
+    /// <summary>
+    /// Tạo ETickets cho tất cả OrderTickets đã confirmed nhưng chưa có ETicket (fix data cũ)
+    /// </summary>
+    public async Task<int> GenerateMissingETicketsAsync(CancellationToken cancellationToken = default)
+    {
+        // Lấy tất cả OrderTickets thuộc orders đã Confirmed nhưng chưa có ETicket
+        var orderTicketsWithoutETicket = await _context.OrderTickets
+            .Include(ot => ot.Order)
+            .Where(ot => ot.Order.Status == Domain.Common.OrderStatus.Confirmed)
+            .Where(ot => !_context.ETickets.Any(e => e.OrderTicketId == ot.Id))
+            .ToListAsync(cancellationToken);
+
+        int generatedCount = 0;
+
+        foreach (var orderTicket in orderTicketsWithoutETicket)
+        {
+            try
+            {
+                var ticketCode = GenerateTicketCode();
+                var qrData = GenerateQrData(ticketCode, orderTicket);
+
+                var eTicket = new ETicket
+                {
+                    OrderTicketId = orderTicket.Id,
+                    TicketCode = ticketCode,
+                    QrData = qrData,
+                    IsUsed = false
+                };
+
+                await _eTicketRepository.AddAsync(eTicket, cancellationToken);
+                generatedCount++;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating e-ticket for orderTicket {orderTicket.Id}: {ex.Message}");
+            }
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return generatedCount;
     }
 
     public async Task<bool> ValidateTicketAsync(string ticketCode, CancellationToken cancellationToken = default)
