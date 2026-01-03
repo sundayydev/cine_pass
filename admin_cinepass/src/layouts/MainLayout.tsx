@@ -97,17 +97,17 @@ const MainLayout = () => {
   );
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
+    <div className="flex h-screen w-full overflow-hidden">
 
-      {/* 3. Sidebar cho Desktop (Ẩn trên mobile) */}
-      <div className="hidden border-r bg-muted/40 md:block">
+      {/* 3. Sidebar cho Desktop (Fixed, không scroll theo content) */}
+      <aside className="hidden md:flex md:w-[220px] lg:w-[280px] flex-col border-r bg-muted/40 h-screen sticky top-0">
         <SidebarContent />
-      </div>
+      </aside>
 
       {/* 4. Khu vực chính bên phải */}
-      <div className="flex flex-col">
-        {/* Header */}
-        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
+      <div className="flex flex-1 flex-col h-screen overflow-hidden">
+        {/* Header - Sticky */}
+        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6 shrink-0">
 
           {/* Nút Menu Mobile (Hiện trên mobile) */}
           <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
@@ -157,8 +157,8 @@ const MainLayout = () => {
           </DropdownMenu>
         </header>
 
-        {/* Nội dung chính (Outlet) */}
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto bg-background">
+        {/* Nội dung chính (Outlet) - Scrollable */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-background">
           <Outlet />
         </main>
         <Toaster />

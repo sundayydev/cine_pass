@@ -52,6 +52,9 @@ export interface OrderUpdateDto {
 export interface OrderResponseDto {
   id: string;
   userId: string | null;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
   totalAmount: number;
   status: string; // OrderStatus string from backend
   paymentMethod?: string;

@@ -64,7 +64,11 @@ public class OrderService
 
     public async Task<List<OrderResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var orders = await _orderRepository.GetAllAsync(cancellationToken);
+        // Include User để lấy thông tin khách hàng
+        var orders = await _context.Orders
+            .Include(o => o.User)
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync(cancellationToken);
         return orders.Select(MapToResponseDto).ToList();
     }
 
@@ -206,8 +210,8 @@ public class OrderService
             throw new InvalidOperationException("Only pending orders can be confirmed");
 
         // Xác nhận order sau khi thanh toán thành công
-        order.Status = OrderStatus.Confirmed;
-        order.ExpireAt = null;
+        order.Status = Domain.Common.OrderStatus.Confirmed;
+        order.ExpireAt = DateTime.UtcNow; // Thời điểm thanh toán thành công
         
         // Đánh dấu voucher đã sử dụng
         if (order.UserVoucherId.HasValue)
@@ -413,7 +417,7 @@ public class OrderService
             Status = OrderStatus.Confirmed,
             PaymentMethod = "CASH",
             CreatedAt = DateTime.UtcNow,
-            ExpireAt = null // No expiration for confirmed orders
+            ExpireAt = DateTime.UtcNow // Thời điểm thanh toán thành công (POS)
         };
 
         // Process tickets
@@ -596,6 +600,9 @@ public class OrderService
         {
             Id = order.Id,
             UserId = order.UserId,
+            CustomerName = order.User?.FullName,
+            CustomerPhone = order.User?.Phone,
+            CustomerEmail = order.User?.Email,
             TotalAmount = order.TotalAmount,
             UserVoucherId = order.UserVoucherId,
             DiscountAmount = order.DiscountAmount,
