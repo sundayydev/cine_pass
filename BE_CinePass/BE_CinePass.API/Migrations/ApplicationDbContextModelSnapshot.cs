@@ -146,6 +146,65 @@ namespace BE_CinePass.API.Migrations
                     b.ToTable("cinemas");
                 });
 
+            modelBuilder.Entity("BE_CinePass.Domain.Models.DeviceToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AppVersion")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("app_version");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DeviceModel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("device_model");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("platform");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("token");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token");
+
+                    b.HasIndex("UserId", "Token")
+                        .IsUnique();
+
+                    b.ToTable("device_tokens");
+                });
+
             modelBuilder.Entity("BE_CinePass.Domain.Models.ETicket", b =>
                 {
                     b.Property<Guid>("Id")
@@ -400,6 +459,42 @@ namespace BE_CinePass.API.Migrations
                     b.ToTable("movie_actors");
                 });
 
+            modelBuilder.Entity("BE_CinePass.Domain.Models.MovieReminder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<Guid>("MovieId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("movie_id");
+
+                    b.Property<DateTime?>("NotifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("notified_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MovieId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("movie_reminders");
+                });
+
             modelBuilder.Entity("BE_CinePass.Domain.Models.MovieReview", b =>
                 {
                     b.Property<Guid>("Id")
@@ -540,6 +635,10 @@ namespace BE_CinePass.API.Migrations
                     b.Property<bool>("EnableUpcomingShowtime")
                         .HasColumnType("boolean")
                         .HasColumnName("enable_upcoming_showtime");
+
+                    b.Property<bool>("PushEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("push_enable");
 
                     b.Property<int>("ShowtimeReminderMinutes")
                         .HasColumnType("integer")
@@ -1210,6 +1309,17 @@ namespace BE_CinePass.API.Migrations
                     b.ToTable("vouchers");
                 });
 
+            modelBuilder.Entity("BE_CinePass.Domain.Models.DeviceToken", b =>
+                {
+                    b.HasOne("BE_CinePass.Domain.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("BE_CinePass.Domain.Models.ETicket", b =>
                 {
                     b.HasOne("BE_CinePass.Domain.Models.OrderTicket", "OrderTicket")
@@ -1243,6 +1353,25 @@ namespace BE_CinePass.API.Migrations
                     b.Navigation("Actor");
 
                     b.Navigation("Movie");
+                });
+
+            modelBuilder.Entity("BE_CinePass.Domain.Models.MovieReminder", b =>
+                {
+                    b.HasOne("BE_CinePass.Domain.Models.Movie", "Movie")
+                        .WithMany()
+                        .HasForeignKey("MovieId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("BE_CinePass.Domain.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Movie");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("BE_CinePass.Domain.Models.MovieReview", b =>

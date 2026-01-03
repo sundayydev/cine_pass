@@ -1,5 +1,6 @@
 using BE_CinePass.Core.Configurations;
 using BE_CinePass.Domain.Common;
+using BE_CinePass.Domain.Events;
 using BE_CinePass.Domain.Models;
 using BE_CinePass.Shared.DTOs.UserVoucher;
 using Microsoft.EntityFrameworkCore;
@@ -12,17 +13,20 @@ public class UserVoucherService
     private readonly VoucherService _voucherService;
     private readonly MemberPointService _memberPointService;
     private readonly PointHistoryService _pointHistoryService;
-
+    private readonly IEventBus _eventBus;
+    
     public UserVoucherService(
         ApplicationDbContext context,
         VoucherService voucherService,
         MemberPointService memberPointService,
-        PointHistoryService pointHistoryService)
+        PointHistoryService pointHistoryService,
+        IEventBus eventBus)
     {
         _context = context;
         _voucherService = voucherService;
         _memberPointService = memberPointService;
         _pointHistoryService = pointHistoryService;
+        _eventBus = eventBus; 
     }
 
     public async Task<List<UserVoucherResponseDto>> GetUserVouchersAsync(
@@ -143,7 +147,16 @@ public class UserVoucherService
 
                     // Reload to include voucher info
                     await _context.Entry(userVoucher).Reference(uv => uv.Voucher).LoadAsync(ct);
-
+                    await _eventBus.PublishAsync(new VoucherReceivedEvent
+                    {
+                        UserId = userId,
+                        VoucherId = userVoucher.Id,
+                        VoucherCode = voucher.Code,
+                        VoucherName = voucher.Name,
+                        DiscountValue = voucher.DiscountValue,
+                        VoucherType = voucher.Type.ToString(),
+                        ExpiresAt = userVoucher.ExpiresAt ?? DateTime.UtcNow.AddMonths(3)
+                    });
                     return (true, MapToResponseDto(userVoucher), (string?)null);
                 }
                 catch (Exception)

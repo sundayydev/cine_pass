@@ -1,6 +1,9 @@
 using BE_CinePass.Domain.Common;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NotificationActionType = BE_CinePass.Shared.Common.NotificationActionType;
+using NotificationPriority = BE_CinePass.Shared.Common.NotificationPriority;
+using NotificationType = BE_CinePass.Shared.Common.NotificationType;
 
 namespace BE_CinePass.Domain.Models;
 

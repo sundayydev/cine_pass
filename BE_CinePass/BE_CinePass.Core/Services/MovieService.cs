@@ -1,5 +1,6 @@
 using BE_CinePass.Core.Repositories;
 using BE_CinePass.Core.Configurations;
+using BE_CinePass.Domain.Events;
 using BE_CinePass.Domain.Models;
 using BE_CinePass.Shared.Common;
 using BE_CinePass.Shared.DTOs.Movie;
@@ -12,11 +13,13 @@ public class MovieService
 {
     private readonly MovieRepository _movieRepository;
     private readonly ApplicationDbContext _context;
+    private readonly IEventBus _eventBus;
 
-    public MovieService(MovieRepository movieRepository, ApplicationDbContext context)
+    public MovieService(MovieRepository movieRepository, ApplicationDbContext context,IEventBus eventBus)
     {
         _movieRepository = movieRepository;
         _context = context;
+        _eventBus = eventBus;
     }
 
     public async Task<MovieDetailResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -81,7 +84,17 @@ public class MovieService
 
         await _movieRepository.AddAsync(movie, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
-
+        if (dto.Status == MovieStatus.Showing && movie.Status != Domain.Common.MovieStatus.Showing)
+        {
+            // 🔔 Publish MovieReleasedEvent
+            await _eventBus.PublishAsync(new MovieReleasedEvent
+            {
+                MovieId = movie.Id,
+                Title = movie.Title,
+                PosterUrl = movie.PosterUrl,
+                ReleaseDate = movie.ReleaseDate ?? DateTime.UtcNow
+            });
+        }
         return MapToResponseDto(movie);
     }
 

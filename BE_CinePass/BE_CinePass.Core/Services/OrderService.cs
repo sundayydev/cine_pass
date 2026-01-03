@@ -1,8 +1,8 @@
 using BE_CinePass.Core.Repositories;
 using BE_CinePass.Core.Configurations;
 using BE_CinePass.Domain.Common;
+using BE_CinePass.Domain.Events;
 using BE_CinePass.Domain.Models;
-using BE_CinePass.Shared.Common;
 using BE_CinePass.Shared.DTOs.Order;
 using Microsoft.EntityFrameworkCore;
 using BE_CinePass.Shared.DTOs.Showtime;
@@ -25,7 +25,8 @@ public class OrderService
     private readonly UserVoucherService _userVoucherService;
     private readonly MemberPointService _memberPointService;
     private readonly PointHistoryService _pointHistoryService;
-
+    private readonly IEventBus _eventBus;
+    
     public OrderService(
         OrderRepository orderRepository,
         OrderTicketRepository orderTicketRepository,
@@ -40,7 +41,8 @@ public class OrderService
         ApplicationDbContext context,
         UserVoucherService userVoucherService,
         MemberPointService memberPointService,
-        PointHistoryService pointHistoryService)
+        PointHistoryService pointHistoryService,
+        IEventBus eventBus)
     {
         _orderRepository = orderRepository;
         _orderTicketRepository = orderTicketRepository;
@@ -56,6 +58,7 @@ public class OrderService
         _userVoucherService = userVoucherService;
         _memberPointService = memberPointService;
         _pointHistoryService = pointHistoryService;
+        _eventBus = eventBus;
     }
 
 
@@ -85,7 +88,7 @@ public class OrderService
 
     public async Task<List<OrderResponseDto>> GetByStatusAsync(Shared.Common.OrderStatus status, CancellationToken cancellationToken = default)
     {
-        var orders = await _orderRepository.GetByStatusAsync((Domain.Common.OrderStatus)status, cancellationToken);
+        var orders = await _orderRepository.GetByStatusAsync((OrderStatus)status, cancellationToken);
         return orders.Select(MapToResponseDto).ToList();
     }
 
@@ -94,7 +97,7 @@ public class OrderService
         var order = new Order
         {
             UserId = dto.UserId,
-            Status = Domain.Common.OrderStatus.Pending,
+            Status = OrderStatus.Pending,
             PaymentMethod = dto.PaymentMethod,
             Note = dto.Note, // Ghi chú từ FE: SEAT-ORDER hoặc PRO-ORDER
             CreatedAt = DateTime.UtcNow,
@@ -182,7 +185,7 @@ public class OrderService
             return null;
 
         if (dto.Status.HasValue)
-            order.Status = (Domain.Common.OrderStatus)dto.Status.Value;
+            order.Status = (OrderStatus)dto.Status.Value;
 
         if (dto.PaymentMethod != null)
             order.PaymentMethod = dto.PaymentMethod;
@@ -199,11 +202,11 @@ public class OrderService
         if (order == null)
             return false;
 
-        if (order.Status != Domain.Common.OrderStatus.Pending)
+        if (order.Status != OrderStatus.Pending)
             throw new InvalidOperationException("Only pending orders can be confirmed");
 
         // Xác nhận order sau khi thanh toán thành công
-        order.Status = Domain.Common.OrderStatus.Confirmed;
+        order.Status = OrderStatus.Confirmed;
         order.ExpireAt = null;
         
         // Đánh dấu voucher đã sử dụng
@@ -222,7 +225,7 @@ public class OrderService
             {
                 UserId = order.UserId.Value,
                 Points = totalPoints,
-                Type = Domain.Common.PointHistoryType.Purchase,
+                Type = PointHistoryType.Purchase,
                 OrderId = orderId,
                 Description = $"Tích {basePoints} điểm (+ {bonusPoints} điểm thưởng) từ đơn hàng",
                 ExpiresAt = DateTime.UtcNow.AddMonths(12)
@@ -258,7 +261,17 @@ public class OrderService
                 Console.WriteLine($"Error generating e-ticket for orderTicket {orderTicket.Id}: {ex.Message}");
             }
         }
-
+        
+        if (order.UserId.HasValue)
+        {
+            await _eventBus.PublishAsync(new OrderFailedEvent
+            {
+                OrderId = order.Id,
+                UserId = order.UserId.Value,
+                Reason = "Order cancelled by user"
+            });
+        }
+        
         return true;
     }
 
@@ -268,14 +281,26 @@ public class OrderService
         if (order == null)
             return false;
 
-        if (order.Status == Domain.Common.OrderStatus.Confirmed)
+        if (order.Status == OrderStatus.Confirmed)
             throw new InvalidOperationException("Các đơn hàng đã được xác nhận không thể hủy trực tiếp. Vui lòng sử dụng chức năng hoàn tiền.");
 
-        order.Status = Domain.Common.OrderStatus.Cancelled;
+        order.Status = OrderStatus.Cancelled;
 
         _orderRepository.Update(order);
         await _context.SaveChangesAsync(cancellationToken);
-
+        
+        if (order.UserId.HasValue)
+        {
+            await _eventBus.PublishAsync(new OrderConfirmedEvent
+            {
+                OrderId = order.Id,
+                UserId = order.UserId.Value,
+                OrderCode = $"ORD-{order.Id.ToString()[..8]}",
+                TotalAmount = order.FinalAmount,
+                TicketCount = order.OrderTickets?.Count ?? 0
+            });
+        }
+        
         return true;
     }
 
@@ -297,7 +322,7 @@ public class OrderService
             .Include(o => o.OrderTickets)
                 .ThenInclude(ot => ot.Showtime)
                     .ThenInclude(s => s.Movie)
-            .Where(o => o.UserId == user.Id && o.Status == Domain.Common.OrderStatus.Confirmed)
+            .Where(o => o.UserId == user.Id && o.Status == OrderStatus.Confirmed)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -325,7 +350,7 @@ public class OrderService
         if (order == null)
             return null;
 
-        if (order.Status != Domain.Common.OrderStatus.Confirmed)
+        if (order.Status != OrderStatus.Confirmed)
             throw new InvalidOperationException("Only confirmed orders can be printed");
 
         return MapToDetailDto(order);
@@ -385,7 +410,7 @@ public class OrderService
         var order = new Order
         {
             UserId = null, // POS orders are guest orders
-            Status = Domain.Common.OrderStatus.Confirmed,
+            Status = OrderStatus.Confirmed,
             PaymentMethod = "CASH",
             CreatedAt = DateTime.UtcNow,
             ExpireAt = null // No expiration for confirmed orders
@@ -459,6 +484,14 @@ public class OrderService
         {
             await _eTicketService.GenerateETicketAsync(orderTicket.Id, cancellationToken);
         }
+        
+        await _eventBus.PublishAsync(new PaymentSuccessEvent
+        {
+            OrderId = order.Id,
+            UserId = null, // Guest order
+            Amount = totalAmount,
+            PaymentMethod = "CASH"
+        });
 
         // Get the full order details with all related data for printing
         var orderDetail = await _orderRepository.GetWithDetailsAsync(order.Id, cancellationToken);
@@ -501,7 +534,7 @@ public class OrderService
         if (order == null)
             throw new InvalidOperationException("Order không tồn tại");
             
-        if (order.Status != Domain.Common.OrderStatus.Pending)
+        if (order.Status != OrderStatus.Pending)
             throw new InvalidOperationException("Chỉ có thể áp dụng voucher cho order đang chờ thanh toán");
             
         // Validate voucher
@@ -544,7 +577,7 @@ public class OrderService
         if (order == null)
             throw new InvalidOperationException("Order không tồn tại");
             
-        if (order.Status != Domain.Common.OrderStatus.Pending)
+        if (order.Status != OrderStatus.Pending)
             throw new InvalidOperationException("Chỉ có thể xóa voucher khỏi order đang chờ thanh toán");
             
         order.UserVoucherId = null;

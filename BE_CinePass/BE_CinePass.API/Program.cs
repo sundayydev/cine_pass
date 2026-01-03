@@ -10,6 +10,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text;
+using BE_CinePass.Core.EventHandlers;
+using BE_CinePass.Core.Services.BackgroundJobs;
+using BE_CinePass.Domain.Events;
+using Hangfire;
+using Hangfire.MemoryStorage;
 
 // Load environment variables từ file .env
 DotNetEnv.Env.Load();
@@ -18,7 +23,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Controllers
 builder.Services.AddControllers();
+// Hangfire
+builder.Services.AddHangfire(config =>
+{
+    config
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UseMemoryStorage();
+});
 
+builder.Services.AddHangfireServer();
 // =======================
 // Options
 // =======================
@@ -141,6 +156,9 @@ builder.Services.AddScoped<MemberPointRepository>();
 builder.Services.AddScoped<ActorRepository>();
 builder.Services.AddScoped<MovieActorRepository>();
 builder.Services.AddScoped<MovieReviewRepository>();
+builder.Services.AddScoped<NotificationRepository>();
+builder.Services.AddScoped<NotificationSettingsRepository>();
+builder.Services.AddScoped<DeviceTokenRepository>();
 
 // =======================
 // Services
@@ -164,7 +182,6 @@ builder.Services.AddScoped<PointHistoryService>();
 builder.Services.AddScoped<VoucherService>();
 builder.Services.AddScoped<UserVoucherService>();
 builder.Services.AddScoped<MemberPointService>();
-
 // Other Services
 builder.Services.AddScoped<ActorService>();
 builder.Services.AddScoped<MovieActorService>();
@@ -173,6 +190,38 @@ builder.Services.AddScoped<CloudinaryService>();
 builder.Services.AddScoped<MomoPaymentService>();
 builder.Services.AddScoped<SeatFoodOrderService>();
 builder.Services.AddScoped<MovieReviewService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<NotificationSettingsService>();
+builder.Services.AddScoped<NotificationHelperService>();
+builder.Services.AddSingleton<FirebaseMessagingService>();
+builder.Services.AddScoped<PushNotificationService>();
+
+builder.Services.AddSingleton<IEventBus, InMemoryEventBus>();
+// Order event handlers
+builder.Services.AddScoped<IEventHandler<OrderConfirmedEvent>, OrderConfirmedEventHandler>();
+builder.Services.AddScoped<IEventHandler<OrderFailedEvent>, OrderFailedEventHandler>();
+builder.Services.AddScoped<IEventHandler<PaymentSuccessEvent>, PaymentSuccessEventHandler>();
+builder.Services.AddScoped<IEventHandler<PaymentFailedEvent>, PaymentFailedEventHandler>();
+builder.Services.AddScoped<IEventHandler<OrderRefundedEvent>, OrderRefundedEventHandler>();
+
+// Showtime event handlers
+builder.Services.AddScoped<IEventHandler<ShowtimeCreatedEvent>, ShowtimeCreatedEventHandler>();
+builder.Services.AddScoped<IEventHandler<ShowtimeCancelledEvent>, ShowtimeCancelledEventHandler>();
+builder.Services.AddScoped<IEventHandler<ShowtimeTimeChangedEvent>, ShowtimeTimeChangedEventHandler>();
+builder.Services.AddScoped<IEventHandler<MovieReleasedEvent>, MovieReleasedEventHandler>();
+
+// Account event handlers
+builder.Services.AddScoped<IEventHandler<VoucherReceivedEvent>, VoucherReceivedEventHandler>();
+builder.Services.AddScoped<IEventHandler<VoucherExpiringSoonEvent>, VoucherExpiringSoonEventHandler>();
+builder.Services.AddScoped<IEventHandler<PointsEarnedEvent>, PointsEarnedEventHandler>();
+builder.Services.AddScoped<IEventHandler<BirthdayVoucherEvent>, BirthdayVoucherEventHandler>();
+builder.Services.AddScoped<IEventHandler<SystemMaintenanceEvent>, SystemMaintenanceEventHandler>();
+builder.Services.AddScoped<IEventHandler<SecurityAlertEvent>, SecurityAlertEventHandler>();
+
+builder.Services.AddScoped<ShowtimeReminderJob>();
+builder.Services.AddScoped<NotificationCleanupJob>();
+builder.Services.AddScoped<VoucherExpiryCheckJob>();
+builder.Services.AddScoped<BirthdayVoucherJob>();
 
 // HttpClient Factory cho Momo và các external APIs
 builder.Services.AddHttpClient();
@@ -255,6 +304,25 @@ app.UseHttpsRedirection();
 app.UseCors("CinePassCors");
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseHangfireDashboard("/hangfire");
+// Clean up expired notifications daily at 2 AM
+RecurringJob.AddOrUpdate<NotificationCleanupJob>(
+    "cleanup-expired-notifications",
+    job => job.CleanupExpiredNotificationsAsync(CancellationToken.None),
+    Cron.Daily(2));
+
+// Check voucher expiry daily at 9 AM
+RecurringJob.AddOrUpdate<VoucherExpiryCheckJob>(
+    "check-voucher-expiry",
+    job => job.CheckVoucherExpiryAsync(CancellationToken.None),
+    Cron.Daily(9));
+
+// Birthday vouchers (nếu bật)
+// RecurringJob.AddOrUpdate<BirthdayVoucherJob>(
+//     "send-birthday-vouchers",
+//     job => job.SendBirthdayVouchersAsync(CancellationToken.None),
+//     Cron.Daily(8));
 
 app.MapControllers();
 app.MapHub<BE_CinePass.API.Hubs.SeatReservationHub>(

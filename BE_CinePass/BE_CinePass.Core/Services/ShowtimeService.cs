@@ -5,6 +5,7 @@ using BE_CinePass.Shared.DTOs.Showtime;
 using BE_CinePass.Shared.DTOs.Seat;
 using BE_CinePass.Shared.Common;
 using BE_CinePass.Domain.Common;
+using BE_CinePass.Domain.Events;
 using Microsoft.EntityFrameworkCore;
 
 namespace BE_CinePass.Core.Services;
@@ -17,14 +18,16 @@ public class ShowtimeService
     private readonly SeatTypeRepository _seatTypeRepository;
     private readonly SeatHoldService _seatHoldService;
     private readonly ApplicationDbContext _context;
-
+    private readonly IEventBus _eventBus;
+    
     public ShowtimeService(
         ShowtimeRepository showtimeRepository,
         MovieRepository movieRepository,
         SeatRepository seatRepository,
         SeatTypeRepository seatTypeRepository,
         SeatHoldService seatHoldService,
-        ApplicationDbContext context)
+        ApplicationDbContext context,
+        IEventBus eventBus)
     {
         _showtimeRepository = showtimeRepository;
         _movieRepository = movieRepository;
@@ -32,6 +35,7 @@ public class ShowtimeService
         _seatTypeRepository = seatTypeRepository;
         _seatHoldService = seatHoldService;
         _context = context;
+        _eventBus = eventBus;
     }
 
     public async Task<List<ShowtimeResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -85,12 +89,26 @@ public class ShowtimeService
             StartTime = dto.StartTime,
             EndTime = endTime,
             BasePrice = dto.BasePrice,
-            IsActive = dto.IsActive
         };
 
         await _showtimeRepository.AddAsync(showtime, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
+        var screen = await _context.Screens
+            .Include(s => s.Cinema)
+            .FirstOrDefaultAsync(s => s.Id == dto.ScreenId, cancellationToken);
 
+        await _eventBus.PublishAsync(new ShowtimeCreatedEvent
+        {
+            ShowtimeId = showtime.Id,
+            MovieId = showtime.MovieId,
+            MovieTitle = movie.Title,
+            StartTime = showtime.StartTime,
+            EndTime = showtime.EndTime,
+            ScreenId = showtime.ScreenId,
+            ScreenName = screen?.Name ?? "N/A",
+            CinemaId = screen?.CinemaId ?? Guid.Empty,
+            CinemaName = screen?.Cinema?.Name ?? "N/A"
+        });
         return MapToResponseDto(showtime);
     }
 
@@ -99,13 +117,18 @@ public class ShowtimeService
         var showtime = await _showtimeRepository.GetByIdAsync(id, cancellationToken);
         if (showtime == null)
             return null;
+        
+        bool timeChanged = false;
+        DateTime oldStartTime = showtime.StartTime;
 
         if (dto.StartTime.HasValue)
         {
             var movie = await _movieRepository.GetByIdAsync(showtime.MovieId, cancellationToken);
             if (movie == null)
                 throw new InvalidOperationException($"Không tìm thấy phim có ID {showtime.MovieId}");
-
+            if (dto.StartTime.Value != showtime.StartTime)
+                timeChanged = true;
+            
             showtime.StartTime = dto.StartTime.Value;
             showtime.EndTime = dto.EndTime ?? dto.StartTime.Value.AddMinutes(movie.DurationMinutes + 15);
 
@@ -126,15 +149,57 @@ public class ShowtimeService
 
         _showtimeRepository.Update(showtime);
         await _context.SaveChangesAsync(cancellationToken);
+        if (timeChanged)
+        {
+            var movie = await _movieRepository.GetByIdAsync(showtime.MovieId, cancellationToken);
+            var screen = await _context.Screens
+                .Include(s => s.Cinema)
+                .FirstOrDefaultAsync(s => s.Id == showtime.ScreenId, cancellationToken);
+
+            await _eventBus.PublishAsync(new ShowtimeTimeChangedEvent
+            {
+                ShowtimeId = showtime.Id,
+                MovieTitle = movie?.Title ?? "N/A",
+                OldStartTime = oldStartTime,
+                NewStartTime = showtime.StartTime,
+                ScreenName = screen?.Name ?? "N/A",
+                CinemaName = screen?.Cinema?.Name ?? "N/A"
+            });
+        }
 
         return MapToResponseDto(showtime);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        var showtime = await _showtimeRepository.GetByIdAsync(id, cancellationToken);
+        if (showtime == null)
+            return false;
+
+        // Get related data before deletion for notification
+        var movie = await _movieRepository.GetByIdAsync(showtime.MovieId, cancellationToken);
+        var screen = await _context.Screens
+            .Include(s => s.Cinema)
+            .FirstOrDefaultAsync(s => s.Id == showtime.ScreenId, cancellationToken);
+
         var result = await _showtimeRepository.RemoveByIdAsync(id, cancellationToken);
+        
         if (result)
+        {
             await _context.SaveChangesAsync(cancellationToken);
+
+            // ✅ NEW: Publish ShowtimeCancelledEvent
+            await _eventBus.PublishAsync(new ShowtimeCancelledEvent
+            {
+                ShowtimeId = id,
+                MovieTitle = movie?.Title ?? "N/A",
+                OriginalStartTime = showtime.StartTime,
+                ScreenName = screen?.Name ?? "N/A",
+                CinemaName = screen?.Cinema?.Name ?? "N/A",
+                Reason = "Cancelled by admin"
+            });
+        }
+
         return result;
     }
 
@@ -238,6 +303,40 @@ public class ShowtimeService
             SoldSeats = soldCount,
             HoldingSeats = holdingCount
         };
+    }
+    
+    public async Task<bool> CancelShowtimeAsync(Guid id, string reason, CancellationToken cancellationToken = default)
+    {
+        var showtime = await _showtimeRepository.GetByIdAsync(id, cancellationToken);
+        if (showtime == null)
+            return false;
+
+        if (!showtime.IsActive)
+            return false; // Already cancelled
+
+        // Get related data for notification
+        var movie = await _movieRepository.GetByIdAsync(showtime.MovieId, cancellationToken);
+        var screen = await _context.Screens
+            .Include(s => s.Cinema)
+            .FirstOrDefaultAsync(s => s.Id == showtime.ScreenId, cancellationToken);
+
+        // Soft delete
+        showtime.IsActive = false;
+        _showtimeRepository.Update(showtime);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // ✅ Publish ShowtimeCancelledEvent
+        await _eventBus.PublishAsync(new ShowtimeCancelledEvent
+        {
+            ShowtimeId = id,
+            MovieTitle = movie?.Title ?? "N/A",
+            OriginalStartTime = showtime.StartTime,
+            ScreenName = screen?.Name ?? "N/A",
+            CinemaName = screen?.Cinema?.Name ?? "N/A",
+            Reason = reason
+        });
+
+        return true;
     }
 
     private static ShowtimeResponseDto MapToResponseDto(Showtime showtime)

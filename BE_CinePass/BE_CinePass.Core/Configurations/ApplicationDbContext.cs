@@ -14,6 +14,7 @@ public class ApplicationDbContext : DbContext
 
     // DbSets
     public DbSet<User> Users { get; set; }
+    public DbSet<DeviceToken> DeviceTokens { get; set; }
     public DbSet<Cinema> Cinemas { get; set; }
     public DbSet<Screen> Screens { get; set; }
     public DbSet<SeatType> SeatTypes { get; set; }
@@ -37,10 +38,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Reward> Rewards { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<NotificationSettings> NotificationSettings { get; set; }
-    
-
-
-
+    public DbSet<MovieReminder> MovieReminders { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -326,6 +324,27 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(ns => ns.User)
                 .WithOne()
                 .HasForeignKey<NotificationSettings>(ns => ns.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        
+        modelBuilder.Entity<DeviceToken>(entity =>
+        {
+            entity.HasIndex(e => e.Token);
+
+            entity.HasIndex(e => new { e.UserId, e.Token })
+                .IsUnique();
+
+            entity.Property(e => e.Token)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            entity.Property(e => e.Platform)
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.HasOne(dt => dt.User)
+                .WithMany()
+                .HasForeignKey(dt => dt.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

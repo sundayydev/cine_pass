@@ -3,6 +3,7 @@ using BE_CinePass.Core.Configurations;
 using BE_CinePass.Domain.Models;
 using BE_CinePass.Shared.DTOs.PaymentTransaction;
 using System.Text.Json;
+using BE_CinePass.Domain.Events;
 
 namespace BE_CinePass.Core.Services;
 
@@ -11,12 +12,14 @@ public class PaymentTransactionService
     private readonly PaymentTransactionRepository _paymentTransactionRepository;
     private readonly OrderRepository _orderRepository;
     private readonly ApplicationDbContext _context;
+    private readonly IEventBus _eventBus;
 
-    public PaymentTransactionService(PaymentTransactionRepository paymentTransactionRepository, OrderRepository orderRepository, ApplicationDbContext context)
+    public PaymentTransactionService(PaymentTransactionRepository paymentTransactionRepository, OrderRepository orderRepository, ApplicationDbContext context,IEventBus eventBus)
     {
         _paymentTransactionRepository = paymentTransactionRepository;
         _orderRepository = orderRepository;
         _context = context;
+        _eventBus = eventBus;
     }
 
     public async Task<PaymentTransactionResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -69,7 +72,27 @@ public class PaymentTransactionService
 
         await _paymentTransactionRepository.AddAsync(transaction, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
-
+        // Khi payment thành công
+        if (transaction.Status == "Success" || transaction.Status == "Completed")
+        {
+            await _eventBus.PublishAsync(new PaymentSuccessEvent
+            {
+                OrderId = transaction.OrderId.Value,
+                UserId = order.UserId,
+                Amount = transaction.Amount.Value,
+                PaymentMethod = "MOMO"
+            });
+        }
+        // Khi payment thất bại
+        else if (transaction.Status == "Failed" || transaction.Status == "Cancelled")
+        {
+            await _eventBus.PublishAsync(new PaymentFailedEvent
+            {
+                OrderId = transaction.OrderId.Value,
+                UserId = order.UserId,
+                Reason = "Payment failed"
+            });
+        }
         return MapToResponseDto(transaction);
     }
 
