@@ -14,6 +14,12 @@ public class OrderCreateDto
 
     [MaxLength(50)]
     public string? PaymentMethod { get; set; }
+
+    /// <summary>
+    /// Ghi chú đơn hàng: SEAT-ORDER hoặc PRO-ORDER kèm thông tin chi tiết
+    /// </summary>
+    [MaxLength(500)]
+    public string? Note { get; set; }
 }
 
 public class OrderTicketItemDto
