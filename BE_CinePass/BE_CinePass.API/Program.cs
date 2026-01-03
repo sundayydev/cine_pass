@@ -19,6 +19,9 @@ using Hangfire.MemoryStorage;
 // Load environment variables từ file .env
 DotNetEnv.Env.Load();
 
+// Load environment variables từ file .env
+DotNetEnv.Env.Load();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Controllers
