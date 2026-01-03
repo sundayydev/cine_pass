@@ -11,7 +11,11 @@ import {
     Calendar,
     User,
     Receipt,
-    RefreshCw
+    RefreshCw,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -107,6 +111,10 @@ const BookingsListPage = () => {
     const debouncedSearch = useDebounce(searchTerm, 500);
     const [statusFilter, setStatusFilter] = useState<string>("all");
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
     // Stats
     const [stats, setStats] = useState({
         total: 0,
@@ -126,6 +134,7 @@ const BookingsListPage = () => {
     // Filter orders when search or status changes
     useEffect(() => {
         filterOrders();
+        setCurrentPage(1); // Reset to first page when filters change
     }, [debouncedSearch, statusFilter, orders]);
 
     const loadOrders = async () => {
@@ -163,11 +172,13 @@ const BookingsListPage = () => {
             filtered = filtered.filter(order => order.status === statusFilter);
         }
 
-        // Filter by search term (order ID or userId)
+        // Filter by search term (order ID, customer name, phone)
         if (debouncedSearch) {
+            const searchLower = debouncedSearch.toLowerCase();
             filtered = filtered.filter(order =>
-                order.id.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                (order.userId && order.userId.toLowerCase().includes(debouncedSearch.toLowerCase()))
+                order.id.toLowerCase().includes(searchLower) ||
+                (order.customerName && order.customerName.toLowerCase().includes(searchLower)) ||
+                (order.customerPhone && order.customerPhone.includes(debouncedSearch))
             );
         }
 
@@ -175,6 +186,24 @@ const BookingsListPage = () => {
         filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
         setFilteredOrders(filtered);
+    };
+
+    // Pagination calculations
+    const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+    // Pagination handlers
+    const goToPage = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+    const handleItemsPerPageChange = (value: string) => {
+        setItemsPerPage(Number(value));
+        setCurrentPage(1); // Reset to first page when changing items per page
     };
 
     const handleConfirmOrder = async (orderId: string) => {
@@ -347,7 +376,7 @@ const BookingsListPage = () => {
                             <div className="relative w-full sm:w-80">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Tìm theo mã đơn hoặc user ID..."
+                                    placeholder="Tìm theo mã đơn, tên KH, SĐT..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="pl-10 bg-background"
@@ -394,7 +423,7 @@ const BookingsListPage = () => {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredOrders.map((order) => {
+                                    paginatedOrders.map((order) => {
                                         const status = statusConfig[order.status] || defaultStatusConfig;
                                         const StatusIcon = status.icon;
 
@@ -412,13 +441,22 @@ const BookingsListPage = () => {
                                                     </div>
                                                 </TableCell>
 
-                                                {/* User */}
+                                                {/* Customer Info */}
                                                 <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <User className="h-4 w-4 text-muted-foreground" />
-                                                        <span className="text-sm font-mono">
-                                                            {order.userId ? `${order.userId.slice(0, 8)}...` : "Khách vãng lai"}
-                                                        </span>
+                                                    <div className="flex items-center gap-3">
+                                                        {/* Avatar/Icon */}
+                                                        <div className="h-9 w-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                                                            <User className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                                                        </div>
+                                                        {/* Name & Phone */}
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-medium text-foreground">
+                                                                {order.customerName || "Khách vãng lai"}
+                                                            </span>
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {order.customerPhone || order.customerEmail || "—"}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </TableCell>
 
@@ -522,6 +560,112 @@ const BookingsListPage = () => {
                             </TableBody>
                         </Table>
                     </div>
+
+                    {/* Pagination Controls */}
+                    {filteredOrders.length > 0 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-4 border-t">
+                            {/* Info & Items per page */}
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span>
+                                    Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredOrders.length)} / {filteredOrders.length} đơn hàng
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span>Số dòng:</span>
+                                    <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+                                        <SelectTrigger className="w-[70px] h-8">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="5">5</SelectItem>
+                                            <SelectItem value="10">10</SelectItem>
+                                            <SelectItem value="20">20</SelectItem>
+                                            <SelectItem value="50">50</SelectItem>
+                                            <SelectItem value="100">100</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Page Navigation */}
+                            <div className="flex items-center gap-1">
+                                {/* First Page */}
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => goToPage(1)}
+                                    disabled={currentPage === 1}
+                                >
+                                    <ChevronsLeft className="h-4 w-4" />
+                                </Button>
+
+                                {/* Previous Page */}
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => goToPage(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                </Button>
+
+                                {/* Page Numbers */}
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                        .filter(page => {
+                                            // Show first page, last page, current page, and pages around current
+                                            if (page === 1 || page === totalPages) return true;
+                                            if (Math.abs(page - currentPage) <= 1) return true;
+                                            return false;
+                                        })
+                                        .map((page, index, array) => {
+                                            // Add ellipsis if there's a gap
+                                            const prevPage = array[index - 1];
+                                            const showEllipsis = prevPage && page - prevPage > 1;
+
+                                            return (
+                                                <div key={page} className="flex items-center gap-1">
+                                                    {showEllipsis && (
+                                                        <span className="px-2 text-muted-foreground">...</span>
+                                                    )}
+                                                    <Button
+                                                        variant={currentPage === page ? "default" : "outline"}
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                        onClick={() => goToPage(page)}
+                                                    >
+                                                        {page}
+                                                    </Button>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+
+                                {/* Next Page */}
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => goToPage(currentPage + 1)}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                >
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+
+                                {/* Last Page */}
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => goToPage(totalPages)}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                >
+                                    <ChevronsRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>
