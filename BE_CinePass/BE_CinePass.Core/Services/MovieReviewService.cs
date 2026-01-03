@@ -68,4 +68,35 @@ public class MovieReviewService
             UserName = user?.FullName ?? user?.Email
         };
     }
+
+    public async Task<MovieReviewResponseDto> UpdateAsync(Guid reviewId, Guid userId, MovieReviewUpdateDto dto, CancellationToken cancellationToken = default)
+    {
+        var review = await _movieReviewRepository.GetByIdAsync(reviewId, cancellationToken);
+        if (review == null) throw new KeyNotFoundException("Không tìm thấy đánh giá");
+
+        if (review.UserId != userId) throw new UnauthorizedAccessException("Bạn không có quyền chỉnh sửa đánh giá này");
+
+        if (dto.Rating.HasValue) review.Rating = dto.Rating.Value;
+        if (dto.Comment != null) review.Comment = dto.Comment;
+
+        review.UpdatedAt = DateTime.UtcNow;
+
+        _movieReviewRepository.Update(review);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Load user to return UserName
+        var user = await _context.Users.FindAsync(new object[] { userId }, cancellationToken);
+
+        return new MovieReviewResponseDto
+        {
+            Id = review.Id,
+            MovieId = review.MovieId,
+            UserId = review.UserId,
+            Rating = review.Rating,
+            Comment = review.Comment,
+            CreatedAt = review.CreatedAt,
+            UpdatedAt = review.UpdatedAt,
+            UserName = user?.FullName ?? user?.Email
+        };
+    }
 }

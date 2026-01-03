@@ -107,6 +107,30 @@ public class ETicketsController : ControllerBase
     }
 
     /// <summary>
+    /// Lấy TẤT CẢ vé của user trong 1 request (tối ưu performance)
+    /// </summary>
+    /// <param name="userId">ID của user</param>
+    /// <param name="upcomingOnly">Chỉ lấy vé sắp chiếu (chưa dùng, showtime > now)</param>
+    [HttpGet("my-tickets/{userId}")]
+    [ProducesResponseType(typeof(List<MyTicketDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<MyTicketDto>>> GetMyTickets(
+        Guid userId, 
+        [FromQuery] bool upcomingOnly = false,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var tickets = await _eTicketService.GetMyTicketsAsync(userId, upcomingOnly, cancellationToken);
+            return Ok(ApiResponseDto<List<MyTicketDto>>.SuccessResult(tickets));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting my tickets for user {UserId}", userId);
+            return StatusCode(500, ApiResponseDto<List<MyTicketDto>>.ErrorResult("Lỗi khi lấy danh sách vé"));
+        }
+    }
+
+    /// <summary>
     /// Tạo vé điện tử (sau khi thanh toán thành công)
     /// </summary>
     [HttpPost("generate/{orderTicketId}")]
@@ -127,6 +151,25 @@ public class ETicketsController : ControllerBase
         {
             _logger.LogError(ex, "Error generating e-ticket");
             return StatusCode(500, ApiResponseDto<ETicketResponseDto>.ErrorResult("Lỗi khi tạo vé điện tử"));
+        }
+    }
+
+    /// <summary>
+    /// Fix data cũ: Tạo ETickets cho tất cả OrderTickets đã confirmed nhưng chưa có ETicket
+    /// </summary>
+    [HttpPost("generate-missing")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult<object>> GenerateMissingETickets(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var generatedCount = await _eTicketService.GenerateMissingETicketsAsync(cancellationToken);
+            return Ok(ApiResponseDto<object>.SuccessResult(new { generatedCount }, $"Đã tạo {generatedCount} vé điện tử"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating missing e-tickets");
+            return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi khi tạo vé điện tử"));
         }
     }
 
