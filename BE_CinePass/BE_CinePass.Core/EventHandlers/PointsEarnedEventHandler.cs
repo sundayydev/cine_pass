@@ -26,7 +26,7 @@ public class PointsEarnedEventHandler : IEventHandler<PointsEarnedEvent>
 
         await _notificationHelper.SendPointsEarnedNotificationAsync(
             @event.UserId,
-            @event.Points,
+            @event.PointsEarned,
             @event.Source,
             cancellationToken);
     }

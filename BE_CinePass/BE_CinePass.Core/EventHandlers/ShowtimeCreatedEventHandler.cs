@@ -24,16 +24,11 @@ public class ShowtimeCreatedEventHandler : IEventHandler<ShowtimeCreatedEvent>
             "Handling ShowtimeCreatedEvent for Showtime {ShowtimeId} - scheduling reminders", 
             @event.ShowtimeId);
 
-        // FIX: Ensure StartTime is treated as UTC (no conversion needed)
-        // var startTimeUtc = @event.StartTime.Kind == DateTimeKind.Utc 
-        //     ? @event.StartTime 
-        //     : DateTime.SpecifyKind(@event.StartTime, DateTimeKind.Utc);
-        // var startTimeUtc = @event.StartTime;
-        var startTimeUtc =
-            @event.StartTime.Kind == DateTimeKind.Utc
-                ? @event.StartTime
-                : DateTime.SpecifyKind(@event.StartTime, DateTimeKind.Local)
-                    .ToUniversalTime();
+        //  FIX: Database now stores UTC times, just specify Kind if not already UTC
+        // No conversion needed since ShowtimeService already converts to UTC before saving
+        var startTimeUtc = @event.StartTime.Kind == DateTimeKind.Utc
+            ? @event.StartTime
+            : DateTime.SpecifyKind(@event.StartTime, DateTimeKind.Utc);
         _logger.LogInformation(
             "StartTime (UTC): {StartTime}, Current (UTC): {Now}",
             startTimeUtc,
