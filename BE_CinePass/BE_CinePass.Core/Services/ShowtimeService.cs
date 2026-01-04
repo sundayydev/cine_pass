@@ -86,8 +86,8 @@ public class ShowtimeService
         {
             MovieId = dto.MovieId,
             ScreenId = dto.ScreenId,
-            StartTime = dto.StartTime,
-            EndTime = endTime,
+            StartTime = dto.StartTime.ToUniversalTime(), // ✅ Convert to UTC for DB storage
+            EndTime = endTime.ToUniversalTime(),          // ✅ Convert to UTC for DB storage
             BasePrice = dto.BasePrice,
         };
 
@@ -129,8 +129,8 @@ public class ShowtimeService
             if (dto.StartTime.Value != showtime.StartTime)
                 timeChanged = true;
             
-            showtime.StartTime = dto.StartTime.Value;
-            showtime.EndTime = dto.EndTime ?? dto.StartTime.Value.AddMinutes(movie.DurationMinutes + 15);
+            showtime.StartTime = dto.StartTime.Value.ToUniversalTime();
+            showtime.EndTime = (dto.EndTime ?? dto.StartTime.Value.AddMinutes(movie.DurationMinutes + 15)).ToUniversalTime();
 
             // Check for overlapping
             if (await _showtimeRepository.HasOverlappingShowtimeAsync(showtime.ScreenId, showtime.StartTime, showtime.EndTime, id, cancellationToken))
@@ -138,7 +138,7 @@ public class ShowtimeService
         }
         else if (dto.EndTime.HasValue)
         {
-            showtime.EndTime = dto.EndTime.Value;
+            showtime.EndTime = dto.EndTime.Value.ToUniversalTime();
         }
 
         if (dto.BasePrice.HasValue)
@@ -188,7 +188,7 @@ public class ShowtimeService
         {
             await _context.SaveChangesAsync(cancellationToken);
 
-            // ✅ NEW: Publish ShowtimeCancelledEvent
+            // Publish ShowtimeCancelledEvent
             await _eventBus.PublishAsync(new ShowtimeCancelledEvent
             {
                 ShowtimeId = id,
@@ -325,7 +325,7 @@ public class ShowtimeService
         _showtimeRepository.Update(showtime);
         await _context.SaveChangesAsync(cancellationToken);
 
-        // ✅ Publish ShowtimeCancelledEvent
+        // Publish ShowtimeCancelledEvent
         await _eventBus.PublishAsync(new ShowtimeCancelledEvent
         {
             ShowtimeId = id,

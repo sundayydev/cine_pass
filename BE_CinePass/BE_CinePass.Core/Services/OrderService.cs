@@ -268,11 +268,13 @@ public class OrderService
         
         if (order.UserId.HasValue)
         {
-            await _eventBus.PublishAsync(new OrderFailedEvent
+            await _eventBus.PublishAsync(new OrderConfirmedEvent
             {
                 OrderId = order.Id,
                 UserId = order.UserId.Value,
-                Reason = "Order cancelled by user"
+                OrderCode = $"ORD-{order.Id.ToString()[..8]}",
+                TotalAmount = order.FinalAmount,
+                TicketCount = orderTickets.Count
             });
         }
         
@@ -295,13 +297,11 @@ public class OrderService
         
         if (order.UserId.HasValue)
         {
-            await _eventBus.PublishAsync(new OrderConfirmedEvent
+            await _eventBus.PublishAsync(new OrderFailedEvent
             {
                 OrderId = order.Id,
                 UserId = order.UserId.Value,
-                OrderCode = $"ORD-{order.Id.ToString()[..8]}",
-                TotalAmount = order.FinalAmount,
-                TicketCount = order.OrderTickets?.Count ?? 0
+                Reason = "Order cancelled by user"
             });
         }
         
