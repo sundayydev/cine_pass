@@ -14,7 +14,7 @@ public class PaymentTransactionService
     private readonly ApplicationDbContext _context;
     private readonly IEventBus _eventBus;
 
-    public PaymentTransactionService(PaymentTransactionRepository paymentTransactionRepository, OrderRepository orderRepository, ApplicationDbContext context,IEventBus eventBus)
+    public PaymentTransactionService(PaymentTransactionRepository paymentTransactionRepository, OrderRepository orderRepository, ApplicationDbContext context, IEventBus eventBus)
     {
         _paymentTransactionRepository = paymentTransactionRepository;
         _orderRepository = orderRepository;
@@ -75,10 +75,12 @@ public class PaymentTransactionService
         // Khi payment thành công
         if (transaction.Status == "Success" || transaction.Status == "Completed")
         {
+            var orderCode = $"ORD-{order.Id.ToString()[..8].ToUpper()}";
             await _eventBus.PublishAsync(new PaymentSuccessEvent
             {
                 OrderId = transaction.OrderId.Value,
                 UserId = order.UserId,
+                OrderCode = orderCode,
                 Amount = transaction.Amount.Value,
                 PaymentMethod = "MOMO"
             });
@@ -86,10 +88,12 @@ public class PaymentTransactionService
         // Khi payment thất bại
         else if (transaction.Status == "Failed" || transaction.Status == "Cancelled")
         {
+            var orderCode = $"ORD-{order.Id.ToString()[..8].ToUpper()}";
             await _eventBus.PublishAsync(new PaymentFailedEvent
             {
                 OrderId = transaction.OrderId.Value,
                 UserId = order.UserId,
+                OrderCode = orderCode,
                 Reason = "Payment failed"
             });
         }
@@ -153,7 +157,7 @@ public class PaymentTransactionService
             return null;
 
         transaction.ProviderTransId = transactionId;
-        
+
         try
         {
             transaction.ResponseJson = JsonDocument.Parse(responseJsonString);
