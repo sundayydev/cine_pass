@@ -145,6 +145,18 @@ public class VoucherService
         if (voucher.Quantity.HasValue && voucher.QuantityRedeemed >= voucher.Quantity.Value)
             return (false, "Voucher đã hết số lượng");
 
+        // Check if this is a one-time voucher (WELCOME, BIRTHDAY, etc.)
+        var oneTimeVoucherCodes = new[] { "WELCOME50K", "BIRTHDAY", "NEWUSER" };
+        
+        if (oneTimeVoucherCodes.Contains(voucher.Code, StringComparer.OrdinalIgnoreCase))
+        {
+            var hasRedeemed = await _context.UserVouchers
+                .AnyAsync(uv => uv.UserId == userId && uv.VoucherId == voucherId, cancellationToken);
+            
+            if (hasRedeemed)
+                return (false, "Bạn đã đổi voucher này rồi. Voucher chỉ được đổi 1 lần duy nhất.");
+        }
+
         var memberPoint = await _memberPointService.GetByUserIdAsync(userId, cancellationToken);
         if (memberPoint == null) return (false, "Không tìm thấy thông tin hội viên");
 

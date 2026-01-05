@@ -1,4 +1,5 @@
 using BE_CinePass.Core.Services;
+using BE_CinePass.Core.Services.BackgroundJobs;
 using BE_CinePass.Shared.Common;
 using BE_CinePass.Shared.DTOs.Common;
 using BE_CinePass.Shared.DTOs.Voucher;
@@ -11,11 +12,16 @@ namespace BE_CinePass.API.Controllers;
 public class VouchersController : ControllerBase
 {
     private readonly VoucherService _voucherService;
+    private readonly VoucherExpiryCheckJob _voucherExpiryCheckJob;
     private readonly ILogger<VouchersController> _logger;
 
-    public VouchersController(VoucherService voucherService, ILogger<VouchersController> logger)
+    public VouchersController(
+        VoucherService voucherService,
+        VoucherExpiryCheckJob voucherExpiryCheckJob,
+        ILogger<VouchersController> logger)
     {
         _voucherService = voucherService;
+        _voucherExpiryCheckJob = voucherExpiryCheckJob;
         _logger = logger;
     }
 
@@ -159,6 +165,29 @@ public class VouchersController : ControllerBase
         {
             _logger.LogError(ex, "Error deleting voucher {VoucherId}", id);
             return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi khi xóa voucher"));
+        }
+    }
+
+    /// <summary>
+    /// [DEBUG] Trigger voucher expiry check job ngay lập tức (Admin only)
+    /// </summary>
+    [HttpPost("debug/test-expiry-check")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public async Task<IActionResult> TriggerExpiryCheck(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Manually triggering voucher expiry check job");
+            await _voucherExpiryCheckJob.CheckVoucherExpiryAsync(cancellationToken);
+            
+            return Ok(ApiResponseDto<object>.SuccessResult(
+                new { message = "Voucher expiry check job completed. Check logs for details." },
+                "Job đã chạy thành công"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error triggering voucher expiry check");
+            return StatusCode(500, ApiResponseDto<object>.ErrorResult("Lỗi khi chạy job kiểm tra voucher"));
         }
     }
 }
