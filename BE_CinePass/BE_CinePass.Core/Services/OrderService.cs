@@ -105,13 +105,15 @@ public class OrderService
             PaymentMethod = dto.PaymentMethod,
             Note = dto.Note, // Ghi chú từ FE: SEAT-ORDER hoặc PRO-ORDER
             CreatedAt = DateTime.UtcNow,
-            ExpireAt = DateTime.UtcNow.AddMinutes(15) // 15 minutes to complete payment
+            ExpireAt = DateTime.UtcNow.AddMinutes(5) // 5 minutes (sync with FE countdown)
         };
+
 
         // Add order first to generate Id
         await _orderRepository.AddAsync(order, cancellationToken);
 
         decimal totalAmount = 0;
+
 
         // Process tickets
         foreach (var ticketItem in dto.Tickets)
@@ -133,20 +135,44 @@ public class OrderService
             if (!string.IsNullOrEmpty(seat.SeatTypeCode))
             {
                 var seatType = await _seatTypeRepository.GetByCodeAsync(seat.SeatTypeCode, cancellationToken);
+
                 if (seatType != null)
                     ticketPrice *= seatType.SurchargeRate;
             }
 
-            var orderTicket = new OrderTicket
-            {
-                OrderId = order.Id,
-                ShowtimeId = ticketItem.ShowtimeId,
-                SeatId = ticketItem.SeatId,
-                Price = ticketPrice
-            };
+            // TAI SU DUNG OrderTicket cu (tu expired pending orders) thay vi insert moi
+            var now = DateTime.UtcNow;
+            var existingTicket = await _context.OrderTickets
+                .FirstOrDefaultAsync(ot => 
+                    ot.ShowtimeId == ticketItem.ShowtimeId &&
+                    ot.SeatId == ticketItem.SeatId &&
+                    ot.Order.Status == OrderStatus.Pending &&
+                    ot.Order.ExpireAt <= now, // Expired pending order
+                    cancellationToken);
 
-            await _orderTicketRepository.AddAsync(orderTicket, cancellationToken);
+            if (existingTicket != null)
+            {
+                // TAI SU DUNG ticket cu, gan cho order moi
+                existingTicket.OrderId = order.Id;
+                existingTicket.Price = ticketPrice;
+                _orderTicketRepository.Update(existingTicket);
+            }
+            else
+            {
+                // Chua co ticket cu, tao moi
+                var orderTicket = new OrderTicket
+                {
+                    OrderId = order.Id,
+                    ShowtimeId = ticketItem.ShowtimeId,
+                    SeatId = ticketItem.SeatId,
+                    Price = ticketPrice
+                };
+
+                await _orderTicketRepository.AddAsync(orderTicket, cancellationToken);
+            }
+            
             totalAmount += ticketPrice;
+
         }
 
         // Process products
@@ -177,7 +203,19 @@ public class OrderService
         order.DiscountAmount = 0;
         order.UserVoucherId = null;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        // ✅ Try to save - catch race condition (duplicate seat booking)
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && 
+                                            pgEx.SqlState == "23505" && 
+                                            pgEx.ConstraintName == "IX_order_tickets_showtime_id_seat_id")
+        {
+            // Race condition: Another user just booked the same seat
+            throw new InvalidOperationException(
+                "One or more seats have just been booked by another user. Please select different seats.");
+        }
 
         return MapToResponseDto(order);
     }
