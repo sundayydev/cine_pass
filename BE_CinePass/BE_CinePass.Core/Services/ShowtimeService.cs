@@ -16,7 +16,6 @@ public class ShowtimeService
     private readonly MovieRepository _movieRepository;
     private readonly SeatRepository _seatRepository;
     private readonly SeatTypeRepository _seatTypeRepository;
-    private readonly SeatHoldService _seatHoldService;
     private readonly ApplicationDbContext _context;
     private readonly IEventBus _eventBus;
     
@@ -25,7 +24,6 @@ public class ShowtimeService
         MovieRepository movieRepository,
         SeatRepository seatRepository,
         SeatTypeRepository seatTypeRepository,
-        SeatHoldService seatHoldService,
         ApplicationDbContext context,
         IEventBus eventBus)
     {
@@ -33,7 +31,6 @@ public class ShowtimeService
         _movieRepository = movieRepository;
         _seatRepository = seatRepository;
         _seatTypeRepository = seatTypeRepository;
-        _seatHoldService = seatHoldService;
         _context = context;
         _eventBus = eventBus;
     }
@@ -237,9 +234,21 @@ public class ShowtimeService
             .Select(ot => ot.SeatId)
             .ToListAsync(cancellationToken);
 
-        // Get all seat IDs to check for holds
-        var allSeatIds = seats.Select(s => s.Id).ToList();
-        var heldSeats = await _seatHoldService.GetHeldSeatsAsync(showtimeId, allSeatIds, cancellationToken);
+        // ✅ Get seats in PENDING orders (not expired) - HOLDING seats
+        var now = DateTime.UtcNow;
+        var pendingSeats = await _context.OrderTickets
+            .Where(ot => ot.ShowtimeId == showtimeId &&
+                         ot.Order.Status == Domain.Common.OrderStatus.Pending &&
+                         ot.Order.ExpireAt > now) // Chưa hết hạn
+            .Select(ot => new { ot.SeatId, ot.Order.UserId })
+            .ToListAsync(cancellationToken);
+
+        var pendingSeatDict = pendingSeats
+            .GroupBy(ps => ps.SeatId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.First().UserId?.ToString() ?? "unknown"
+            );
 
         // Get seat types for pricing
         var seatTypes = await _seatTypeRepository.GetAllAsync(cancellationToken);
@@ -255,8 +264,9 @@ public class ShowtimeService
             {
                 status = SeatStatus.Sold;
             }
-            else if (heldSeats.TryGetValue(seat.Id, out var userId))
+            else if (pendingSeatDict.TryGetValue(seat.Id, out var userId))
             {
+                // ✅ Ghế đang bị hold bởi pending order
                 status = SeatStatus.Holding;
                 heldByUserId = userId;
             }
