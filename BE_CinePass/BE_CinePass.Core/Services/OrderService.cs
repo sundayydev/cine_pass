@@ -26,7 +26,7 @@ public class OrderService
     private readonly MemberPointService _memberPointService;
     private readonly PointHistoryService _pointHistoryService;
     private readonly IEventBus _eventBus;
-    
+
     public OrderService(
         OrderRepository orderRepository,
         OrderTicketRepository orderTicketRepository,
@@ -143,7 +143,7 @@ public class OrderService
             // TAI SU DUNG OrderTicket cu (tu expired pending orders) thay vi insert moi
             var now = DateTime.UtcNow;
             var existingTicket = await _context.OrderTickets
-                .FirstOrDefaultAsync(ot => 
+                .FirstOrDefaultAsync(ot =>
                     ot.ShowtimeId == ticketItem.ShowtimeId &&
                     ot.SeatId == ticketItem.SeatId &&
                     ot.Order.Status == OrderStatus.Pending &&
@@ -170,7 +170,7 @@ public class OrderService
 
                 await _orderTicketRepository.AddAsync(orderTicket, cancellationToken);
             }
-            
+
             totalAmount += ticketPrice;
 
         }
@@ -208,8 +208,8 @@ public class OrderService
         {
             await _context.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && 
-                                            pgEx.SqlState == "23505" && 
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx &&
+                                            pgEx.SqlState == "23505" &&
                                             pgEx.ConstraintName == "IX_order_tickets_showtime_id_seat_id")
         {
             // Race condition: Another user just booked the same seat
@@ -250,19 +250,19 @@ public class OrderService
         // Xác nhận order sau khi thanh toán thành công
         order.Status = Domain.Common.OrderStatus.Confirmed;
         order.ExpireAt = DateTime.UtcNow; // Thời điểm thanh toán thành công
-        
+
         // Đánh dấu voucher đã sử dụng
         if (order.UserVoucherId.HasValue)
         {
             await _userVoucherService.MarkAsUsedAsync(order.UserVoucherId.Value, orderId, cancellationToken);
         }
-        
+
         // Tích điểm cho user
         if (order.UserId.HasValue)
         {
             var (basePoints, bonusPoints, totalPoints) = await _memberPointService
                 .AddPointsFromOrderAsync(order.UserId.Value, order.FinalAmount, cancellationToken);
-            
+
             await _pointHistoryService.CreateAsync(new PointHistory
             {
                 UserId = order.UserId.Value,
@@ -303,7 +303,7 @@ public class OrderService
                 Console.WriteLine($"Error generating e-ticket for orderTicket {orderTicket.Id}: {ex.Message}");
             }
         }
-        
+
         if (order.UserId.HasValue)
         {
             await _eventBus.PublishAsync(new OrderConfirmedEvent
@@ -315,7 +315,7 @@ public class OrderService
                 TicketCount = orderTickets.Count
             });
         }
-        
+
         return true;
     }
 
@@ -332,17 +332,18 @@ public class OrderService
 
         _orderRepository.Update(order);
         await _context.SaveChangesAsync(cancellationToken);
-        
+
         if (order.UserId.HasValue)
         {
             await _eventBus.PublishAsync(new OrderFailedEvent
             {
                 OrderId = order.Id,
                 UserId = order.UserId.Value,
+                OrderCode = $"ORD-{order.Id.ToString()[..8].ToUpper()}",
                 Reason = "Order cancelled by user"
             });
         }
-        
+
         return true;
     }
 
@@ -526,11 +527,12 @@ public class OrderService
         {
             await _eTicketService.GenerateETicketAsync(orderTicket.Id, cancellationToken);
         }
-        
+
         await _eventBus.PublishAsync(new PaymentSuccessEvent
         {
             OrderId = order.Id,
             UserId = null, // Guest order
+            OrderCode = $"ORD-{order.Id.ToString()[..8].ToUpper()}",
             Amount = totalAmount,
             PaymentMethod = "CASH"
         });
@@ -563,72 +565,72 @@ public class OrderService
 
         return response;
     }
-    
+
     /// <summary>
     /// Áp dụng voucher vào order
     /// </summary>
     public async Task<OrderResponseDto> ApplyVoucherAsync(
-        Guid orderId, 
-        Guid userVoucherId, 
+        Guid orderId,
+        Guid userVoucherId,
         CancellationToken cancellationToken = default)
     {
         var order = await _orderRepository.GetByIdAsync(orderId, cancellationToken);
         if (order == null)
             throw new InvalidOperationException("Order không tồn tại");
-            
+
         if (order.Status != OrderStatus.Pending)
             throw new InvalidOperationException("Chỉ có thể áp dụng voucher cho order đang chờ thanh toán");
-            
+
         // Validate voucher
         var (isValid, errorMessage) = await _userVoucherService
             .ValidateVoucherUsageAsync(userVoucherId, order.TotalAmount, cancellationToken);
-            
+
         if (!isValid)
             throw new InvalidOperationException(errorMessage ?? "Voucher không hợp lệ");
-            
+
         // Get voucher để tính discount
         var userVoucher = await _context.UserVouchers
             .Include(uv => uv.Voucher)
             .FirstOrDefaultAsync(uv => uv.Id == userVoucherId, cancellationToken);
-            
+
         if (userVoucher == null)
             throw new InvalidOperationException("User voucher không tồn tại");
-            
+
         // Tính discount
         var discount = _userVoucherService.CalculateDiscount(userVoucher, order.TotalAmount);
-        
+
         // Update order
         order.UserVoucherId = userVoucherId;
         order.DiscountAmount = discount;
         order.FinalAmount = order.TotalAmount - discount;
-        
+
         _orderRepository.Update(order);
         await _context.SaveChangesAsync(cancellationToken);
-        
+
         return MapToResponseDto(order);
     }
-    
+
     /// <summary>
     /// Xóa voucher khỏi order
     /// </summary>
     public async Task<OrderResponseDto> RemoveVoucherAsync(
-        Guid orderId, 
+        Guid orderId,
         CancellationToken cancellationToken = default)
     {
         var order = await _orderRepository.GetByIdAsync(orderId, cancellationToken);
         if (order == null)
             throw new InvalidOperationException("Order không tồn tại");
-            
+
         if (order.Status != OrderStatus.Pending)
             throw new InvalidOperationException("Chỉ có thể xóa voucher khỏi order đang chờ thanh toán");
-            
+
         order.UserVoucherId = null;
         order.DiscountAmount = 0;
         order.FinalAmount = order.TotalAmount;
-        
+
         _orderRepository.Update(order);
         await _context.SaveChangesAsync(cancellationToken);
-        
+
         return MapToResponseDto(order);
     }
 
