@@ -292,8 +292,17 @@ public class NotificationHelperService
         {
             if (!userId.HasValue) return;
 
-            var startTimeUtc = DateTime.SpecifyKind(startTime, DateTimeKind.Utc);
+            // startTime is already in UTC from database
+            // Just ensure it's marked as UTC (if Kind is Unspecified)
+            var startTimeUtc = startTime.Kind == DateTimeKind.Utc 
+                ? startTime 
+                : DateTime.SpecifyKind(startTime, DateTimeKind.Utc);
+            
             var minutesUntil = (int)(startTimeUtc - DateTime.UtcNow).TotalMinutes;
+            
+            _logger.LogDebug(
+                "Showtime reminder: startTime={StartTime}, startTimeUtc={StartTimeUtc}, currentUtc={CurrentUtc}, minutesUntil={Minutes}",
+                startTime, startTimeUtc, DateTime.UtcNow, minutesUntil);
 
             var title = "Sắp tới giờ chiếu";
             var message = $"Phim '{movieTitle}' tại {cinemaName} sẽ bắt đầu sau {minutesUntil} phút";

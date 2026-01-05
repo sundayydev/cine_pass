@@ -50,17 +50,27 @@ public class ShowtimeReminderJob
                 showtime.Screen.Name,
                 showtime.StartTime);
 
-            // ✅ FIX: Get all orders that have tickets for this showtime
+            // Ensure showtime StartTime is marked as UTC (database values are UTC)
+            var startTimeUtc = showtime.StartTime.Kind == DateTimeKind.Utc
+                ? showtime.StartTime
+                : DateTime.SpecifyKind(showtime.StartTime, DateTimeKind.Utc);
+
+            _logger.LogInformation(
+                "StartTime from DB: {StartTime} (Kind: {Kind}), Ensured UTC: {StartTimeUtc}",
+                showtime.StartTime, showtime.StartTime.Kind, startTimeUtc);
+
+            // Get all orders that have tickets for this showtime (regardless of status for testing)
             var ordersWithShowtime = await _context.Set<Domain.Models.OrderTicket>()
                 .Include(ot => ot.Order)
                     .ThenInclude(o => o.User)
                 .Where(ot => ot.ShowtimeId == showtimeId)
-                .Where(ot => ot.Order.Status == OrderStatus.Confirmed)
+                // Removed OrderStatus filter for testing - sends to ALL orders
                 .Select(ot => new
                 {
                     UserId = ot.Order.UserId,
                     OrderId = ot.Order.Id,
-                    UserName = ot.Order.User != null ? ot.Order.User.FullName : null
+                    UserName = ot.Order.User != null ? ot.Order.User.FullName : null,
+                    OrderStatus = ot.Order.Status
                 })
                 .Distinct()
                 .ToListAsync(cancellationToken);
@@ -74,7 +84,7 @@ public class ShowtimeReminderJob
             }
 
             _logger.LogInformation(
-                "Found {Count} users with confirmed orders for Showtime {ShowtimeId}", 
+                "Found {Count} users with orders for Showtime {ShowtimeId}", 
                 ordersWithShowtime.Count, 
                 showtimeId);
 
@@ -98,7 +108,7 @@ public class ShowtimeReminderJob
                         showtimeId,
                         showtime.Movie.Title,
                         $"{showtime.Screen.Cinema?.Name ?? "Cinema"} - {showtime.Screen.Name}",
-                        showtime.StartTime,
+                        startTimeUtc,  // ✅ Pass UTC-ensured time
                         cancellationToken);
 
                     successCount++;
