@@ -196,19 +196,24 @@ public class MovieService
         var movie = showtimes.First().Movie;
 
         var grouped = showtimes
-            .GroupBy(s => s.Screen.Cinema)
-            .Select(g => new CinemaWithShowtimesForMovieDto
+        .GroupBy(s => s.Screen.CinemaId)
+        .Select(g => 
+        {
+            var firstShowtime = g.First();
+            var cinema = firstShowtime.Screen.Cinema;
+            
+            return new CinemaWithShowtimesForMovieDto
             {
-                CinemaId = g.Key.Id,
-                CinemaName = g.Key.Name,
-                Slug = g.Key.Slug ?? string.Empty,
-                Address = g.Key.Address,
-                City = g.Key.City,
-                Phone = g.Key.Phone,
-                BannerUrl = g.Key.BannerUrl,
-                TotalScreens = g.Key.TotalScreens,
-                Latitude = g.Key.Latitude,
-                Longitude = g.Key.Longitude,
+                CinemaId = cinema.Id,
+                CinemaName = cinema.Name,
+                Slug = cinema.Slug ?? string.Empty,
+                Address = cinema.Address,
+                City = cinema.City,
+                Phone = cinema.Phone,
+                BannerUrl = cinema.BannerUrl,
+                TotalScreens = cinema.TotalScreens,
+                Latitude = cinema.Latitude,
+                Longitude = cinema.Longitude,
                 Showtimes = g.Select(s => new ShowtimeResponseDto
                 {
                     Id = s.Id,
@@ -218,9 +223,10 @@ public class MovieService
                     BasePrice = s.BasePrice,
                     IsActive = s.IsActive
                 }).OrderBy(st => st.StartTime).ToList()
-            })
-            .OrderBy(c => c.CinemaName)
-            .ToList();
+            };
+        })
+        .OrderBy(c => c.CinemaName)
+        .ToList();
 
         return new MovieCinemasWithShowtimesResponseDto
         {
